@@ -1,0 +1,11 @@
+// Prisma schema for Casually - Task Management App
+// Using Neon PostgreSQL (serverless) as the database
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
