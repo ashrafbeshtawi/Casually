@@ -3,11 +3,10 @@ import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { type Priority, type TaskState } from '@/types'
-import { TaskCard } from '@/components/task-card'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateChanger } from '@/components/state-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
-import { MoveTaskButton } from '@/components/move-task-button'
+import { SortableTaskList } from '@/components/sortable-task-list'
 import { ArrowLeft } from 'lucide-react'
 
 interface ProjectDetailPageProps {
@@ -112,36 +111,22 @@ export default async function ProjectDetailPage({
         </div>
 
         {project.shortTermTasks.length > 0 ? (
-          <div className="grid gap-2">
-            {project.shortTermTasks.map((task) => {
-              const taskBlockedBy = task.blockedBy as Array<{
+          <SortableTaskList
+            parentId={project.id}
+            tasks={project.shortTermTasks.map((task) => ({
+              id: task.id,
+              title: task.title,
+              description: task.description,
+              emoji: task.emoji,
+              priority: task.priority as Priority,
+              state: task.state as TaskState,
+              blockedBy: (task.blockedBy ?? []) as Array<{
                 type: string
                 taskId: string
-              }>
-
-              return (
-                <div key={task.id} className="flex items-center gap-1">
-                  <div className="min-w-0 flex-1">
-                    <TaskCard
-                      id={task.id}
-                      title={task.title}
-                      description={task.description}
-                      emoji={task.emoji}
-                      priority={task.priority as Priority}
-                      state={task.state as TaskState}
-                      blockedBy={taskBlockedBy}
-                      taskType="shortTerm"
-                      variant="compact"
-                    />
-                  </div>
-                  <MoveTaskButton
-                    taskId={task.id}
-                    currentParentId={project.id}
-                  />
-                </div>
-              )
-            })}
-          </div>
+              }>,
+              parentId: project.id,
+            }))}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-8">
             <p className="text-muted-foreground text-sm">

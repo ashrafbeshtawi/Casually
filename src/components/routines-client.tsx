@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { type Priority, type TaskState, type Interval } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { CreateRoutineDialog } from '@/components/create-routine-dialog'
@@ -8,6 +10,8 @@ import {
   EditSectionName,
   DeleteSectionButton,
 } from '@/components/section-manager'
+import { SortableList, DragHandle } from '@/components/sortable-list'
+import { reorderItems } from '@/lib/reorder'
 
 interface RoutineData {
   id: string
@@ -52,7 +56,11 @@ function getIntervalLabel(
   return INTERVAL_LABELS[interval] ?? null
 }
 
-export function RoutinesClient({ sections, routines }: RoutinesClientProps) {
+export function RoutinesClient({ sections: initialSections, routines: initialRoutines }: RoutinesClientProps) {
+  const [sections, setSections] = useState(initialSections)
+  const [routines, setRoutines] = useState(initialRoutines)
+  const router = useRouter()
+
   // Group routines by sectionId
   const routinesBySection = new Map<string | null, RoutineData[]>()
 
@@ -69,6 +77,24 @@ export function RoutinesClient({ sections, routines }: RoutinesClientProps) {
 
   const hasNoContent =
     sections.length === 0 && routines.length === 0
+
+  async function handleSectionReorder(reorderedSections: SectionData[]) {
+    setSections(reorderedSections)
+    await reorderItems(reorderedSections, '/api/routine-sections')
+    router.refresh()
+  }
+
+  function handleRoutineReorder(sectionId: string | null) {
+    return async (reorderedRoutines: RoutineData[]) => {
+      // Update the routines state: replace the routines for this section
+      setRoutines((prev) => {
+        const otherRoutines = prev.filter((r) => r.sectionId !== sectionId)
+        return [...otherRoutines, ...reorderedRoutines]
+      })
+      await reorderItems(reorderedRoutines, '/api/routines')
+      router.refresh()
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -96,36 +122,93 @@ export function RoutinesClient({ sections, routines }: RoutinesClientProps) {
         </div>
       )}
 
-      {/* Sections with routines */}
-      {sections.map((section) => {
-        const sectionRoutines = routinesBySection.get(section.id) ?? []
+      {/* Sections — sortable */}
+      {sections.length > 0 && (
+        <SortableList
+          items={sections}
+          getItemId={(s) => s.id}
+          onReorder={handleSectionReorder}
+          renderItem={(section, dragHandleProps) => {
+            const sectionRoutines = routinesBySection.get(section.id) ?? []
 
-        return (
-          <div key={section.id} className="space-y-3">
-            {/* Section header */}
-            <div className="flex items-center justify-between border-b pb-2">
-              <div className="flex items-center gap-2">
-                <EditSectionName
-                  sectionId={section.id}
-                  currentName={section.name}
-                />
-                <span className="text-muted-foreground text-xs">
-                  ({sectionRoutines.length})
-                </span>
+            return (
+              <div className="space-y-3">
+                {/* Section header */}
+                <div className="flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-2">
+                    <DragHandle {...dragHandleProps} />
+                    <EditSectionName
+                      sectionId={section.id}
+                      currentName={section.name}
+                    />
+                    <span className="text-muted-foreground text-xs">
+                      ({sectionRoutines.length})
+                    </span>
+                  </div>
+                  <DeleteSectionButton
+                    sectionId={section.id}
+                    sectionName={section.name}
+                    routineCount={sectionRoutines.length}
+                  />
+                </div>
+
+                {/* Routines in section — sortable */}
+                {sectionRoutines.length > 0 ? (
+                  <SortableList
+                    items={sectionRoutines}
+                    getItemId={(r) => r.id}
+                    onReorder={handleRoutineReorder(section.id)}
+                    renderItem={(routine, routineDragHandleProps) => (
+                      <div className="flex items-center gap-1">
+                        <DragHandle {...routineDragHandleProps} />
+                        <div className="min-w-0 flex-1">
+                          <TaskCard
+                            id={routine.id}
+                            title={routine.title}
+                            description={routine.description}
+                            emoji={routine.emoji}
+                            priority={routine.priority}
+                            state={routine.state}
+                            taskType="routine"
+                            intervalLabel={getIntervalLabel(
+                              routine.interval,
+                              routine.customInterval
+                            )}
+                            variant="compact"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  />
+                ) : (
+                  <p className="text-muted-foreground py-3 text-center text-xs">
+                    No routines in this section.
+                  </p>
+                )}
               </div>
-              <DeleteSectionButton
-                sectionId={section.id}
-                sectionName={section.name}
-                routineCount={sectionRoutines.length}
-              />
-            </div>
+            )
+          }}
+        />
+      )}
 
-            {/* Routines in section */}
-            {sectionRoutines.length > 0 ? (
-              <div className="grid gap-2">
-                {sectionRoutines.map((routine) => (
+      {/* Unsorted routines (sectionId = null) — sortable */}
+      {unsortedRoutines.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center border-b pb-2">
+            <h2 className="text-lg font-semibold">Unsorted</h2>
+            <span className="text-muted-foreground ml-2 text-xs">
+              ({unsortedRoutines.length})
+            </span>
+          </div>
+          <SortableList
+            items={unsortedRoutines}
+            getItemId={(r) => r.id}
+            onReorder={handleRoutineReorder(null)}
+            renderItem={(routine, routineDragHandleProps) => (
+              <div className="flex items-center gap-1">
+                <DragHandle {...routineDragHandleProps} />
+                <div className="min-w-0 flex-1">
                   <TaskCard
-                    key={routine.id}
                     id={routine.id}
                     title={routine.title}
                     description={routine.description}
@@ -139,45 +222,10 @@ export function RoutinesClient({ sections, routines }: RoutinesClientProps) {
                     )}
                     variant="compact"
                   />
-                ))}
+                </div>
               </div>
-            ) : (
-              <p className="text-muted-foreground py-3 text-center text-xs">
-                No routines in this section.
-              </p>
             )}
-          </div>
-        )
-      })}
-
-      {/* Unsorted routines (sectionId = null) */}
-      {unsortedRoutines.length > 0 && (
-        <div className="space-y-3">
-          <div className="flex items-center border-b pb-2">
-            <h2 className="text-lg font-semibold">Unsorted</h2>
-            <span className="text-muted-foreground ml-2 text-xs">
-              ({unsortedRoutines.length})
-            </span>
-          </div>
-          <div className="grid gap-2">
-            {unsortedRoutines.map((routine) => (
-              <TaskCard
-                key={routine.id}
-                id={routine.id}
-                title={routine.title}
-                description={routine.description}
-                emoji={routine.emoji}
-                priority={routine.priority}
-                state={routine.state}
-                taskType="routine"
-                intervalLabel={getIntervalLabel(
-                  routine.interval,
-                  routine.customInterval
-                )}
-                variant="compact"
-              />
-            ))}
-          </div>
+          />
         </div>
       )}
     </div>

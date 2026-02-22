@@ -6,6 +6,7 @@ import { type Priority, type TaskState } from '@/types'
 import { ProjectCardLink } from '@/components/project-card-link'
 import { ProjectListFilters } from '@/components/project-list-filters'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
+import { SortableProjectList } from '@/components/sortable-project-list'
 
 interface ProjectsPageProps {
   searchParams: Promise<{ state?: string; priority?: string }>
@@ -83,21 +84,18 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
 
       {/* Regular projects */}
       {regularTasks.length > 0 ? (
-        <div className="grid gap-3">
-          {regularTasks.map((task) => (
-            <ProjectCardLink
-              key={task.id}
-              id={task.id}
-              title={task.title}
-              description={task.description}
-              emoji={task.emoji}
-              priority={task.priority as Priority}
-              state={task.state as TaskState}
-              isOneOff={false}
-              shortTermTaskCount={task._count.shortTermTasks}
-            />
-          ))}
-        </div>
+        <SortableProjectList
+          projects={regularTasks.map((task) => ({
+            id: task.id,
+            title: task.title,
+            description: task.description,
+            emoji: task.emoji,
+            priority: task.priority as Priority,
+            state: task.state as TaskState,
+            isOneOff: false,
+            shortTermTaskCount: task._count.shortTermTasks,
+          }))}
+        />
       ) : (
         !oneOffTask && (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
