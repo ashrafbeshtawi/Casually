@@ -15,7 +15,8 @@
       "Bash(tail:*)",
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
-      "Bash(npx next:*)"
+      "Bash(npx next:*)",
+      "Bash(openssl rand:*)"
     ]
   }
 }
