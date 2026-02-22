@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { TaskForm, type TaskFormData } from '@/components/task-form'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 export function CreateProjectDialog() {
   const [open, setOpen] = useState(false)
@@ -39,8 +40,11 @@ export function CreateProjectDialog() {
 
       setOpen(false)
       router.refresh()
+      toast.success('Project created')
     } catch (error) {
-      console.error('Failed to create project:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to create project'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }

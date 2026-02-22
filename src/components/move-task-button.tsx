@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { ArrowRightLeft, Loader2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
 import { type LongTermTask, type Priority, PRIORITY_COLORS } from '@/types'
 
 interface MoveTaskButtonProps {
@@ -40,8 +41,8 @@ export function MoveTaskButton({
         .then((data: LongTermTask[]) => {
           setProjects(data)
         })
-        .catch((err) => {
-          console.error('Failed to load projects:', err)
+        .catch(() => {
+          toast.error('Failed to load projects')
         })
         .finally(() => {
           setIsLoadingProjects(false)
@@ -67,8 +68,11 @@ export function MoveTaskButton({
 
       setOpen(false)
       router.refresh()
+      toast.success('Task moved')
     } catch (error) {
-      console.error('Failed to move task:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to move task'
+      toast.error(message)
     } finally {
       setIsMoving(false)
     }

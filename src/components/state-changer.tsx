@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { ChevronDown, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface StateChangerProps {
   taskId: string
@@ -83,11 +84,12 @@ export function StateChanger({
 
       onStateChange?.(newState)
       router.refresh()
+      toast.success('State updated')
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to change state'
       setError(message)
-      console.error('State change failed:', err)
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }

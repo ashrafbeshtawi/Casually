@@ -10,8 +10,10 @@ import {
   EditSectionName,
   DeleteSectionButton,
 } from '@/components/section-manager'
+import { DeleteTaskButton } from '@/components/delete-task-button'
 import { SortableList, DragHandle } from '@/components/sortable-list'
 import { reorderItems } from '@/lib/reorder'
+import { toast } from 'sonner'
 
 interface RoutineData {
   id: string
@@ -79,20 +81,32 @@ export function RoutinesClient({ sections: initialSections, routines: initialRou
     sections.length === 0 && routines.length === 0
 
   async function handleSectionReorder(reorderedSections: SectionData[]) {
+    const previous = sections
     setSections(reorderedSections)
-    await reorderItems(reorderedSections, '/api/routine-sections')
-    router.refresh()
+    try {
+      await reorderItems(reorderedSections, '/api/routine-sections')
+      router.refresh()
+    } catch {
+      setSections(previous)
+      toast.error('Failed to reorder sections')
+    }
   }
 
   function handleRoutineReorder(sectionId: string | null) {
     return async (reorderedRoutines: RoutineData[]) => {
+      const previous = routines
       // Update the routines state: replace the routines for this section
       setRoutines((prev) => {
         const otherRoutines = prev.filter((r) => r.sectionId !== sectionId)
         return [...otherRoutines, ...reorderedRoutines]
       })
-      await reorderItems(reorderedRoutines, '/api/routines')
-      router.refresh()
+      try {
+        await reorderItems(reorderedRoutines, '/api/routines')
+        router.refresh()
+      } catch {
+        setRoutines(previous)
+        toast.error('Failed to reorder routines')
+      }
     }
   }
 
@@ -177,6 +191,11 @@ export function RoutinesClient({ sections: initialSections, routines: initialRou
                             variant="compact"
                           />
                         </div>
+                        <DeleteTaskButton
+                          taskId={routine.id}
+                          taskType="routine"
+                          taskTitle={routine.title}
+                        />
                       </div>
                     )}
                   />
@@ -223,6 +242,11 @@ export function RoutinesClient({ sections: initialSections, routines: initialRou
                     variant="compact"
                   />
                 </div>
+                <DeleteTaskButton
+                  taskId={routine.id}
+                  taskType="routine"
+                  taskTitle={routine.title}
+                />
               </div>
             )}
           />

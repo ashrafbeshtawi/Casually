@@ -12,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { TaskForm, type TaskFormData } from '@/components/task-form'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface CreateShortTermTaskDialogProps {
   parentId: string
@@ -46,8 +47,11 @@ export function CreateShortTermTaskDialog({
 
       setOpen(false)
       router.refresh()
+      toast.success('Task created')
     } catch (error) {
-      console.error('Failed to create task:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to create task'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }

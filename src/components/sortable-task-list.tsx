@@ -5,8 +5,10 @@ import { useRouter } from 'next/navigation'
 import { SortableList, DragHandle, type DragHandleProps } from '@/components/sortable-list'
 import { TaskCard } from '@/components/task-card'
 import { MoveTaskButton } from '@/components/move-task-button'
+import { DeleteTaskButton } from '@/components/delete-task-button'
 import { reorderItems } from '@/lib/reorder'
 import { type Priority, type TaskState } from '@/types'
+import { toast } from 'sonner'
 
 interface TaskItem {
   id: string
@@ -29,9 +31,15 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
   const router = useRouter()
 
   async function handleReorder(reordered: TaskItem[]) {
+    const previous = tasks
     setTasks(reordered)
-    await reorderItems(reordered, '/api/short-term-tasks')
-    router.refresh()
+    try {
+      await reorderItems(reordered, '/api/short-term-tasks')
+      router.refresh()
+    } catch {
+      setTasks(previous)
+      toast.error('Failed to reorder tasks')
+    }
   }
 
   if (tasks.length === 0) return null
@@ -60,6 +68,11 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
           <MoveTaskButton
             taskId={task.id}
             currentParentId={parentId}
+          />
+          <DeleteTaskButton
+            taskId={task.id}
+            taskType="shortTerm"
+            taskTitle={task.title}
           />
         </div>
       )}

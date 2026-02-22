@@ -15,6 +15,7 @@ import { StateBadge } from '@/components/state-badge'
 import { PriorityBadge } from '@/components/priority-badge'
 import type { TaskState, Priority } from '@/types'
 import { Loader2, Search, Ban } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface TaskBlockPickerProps {
   taskId: string
@@ -160,10 +161,12 @@ export function TaskBlockPicker({
       onBlockAdded?.()
       onOpenChange(false)
       router.refresh()
+      toast.success('Blocker added')
     } catch (err) {
       const message =
         err instanceof Error ? err.message : 'Failed to add blocker'
       setError(message)
+      toast.error(message)
     } finally {
       setIsAddingBlock(false)
     }

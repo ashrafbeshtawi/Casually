@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/select'
 import { TaskForm, type TaskFormData } from '@/components/task-form'
 import { Plus } from 'lucide-react'
+import { toast } from 'sonner'
 
 interface Section {
   id: string
@@ -67,8 +68,11 @@ export function CreateRoutineDialog({
       setOpen(false)
       setSectionId(defaultSectionId ?? 'NONE')
       router.refresh()
+      toast.success('Routine created')
     } catch (error) {
-      console.error('Failed to create routine:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to create routine'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
