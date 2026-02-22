@@ -17,6 +17,21 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   pages: {
     signIn: "/login",
   },
+  events: {
+    createUser: async ({ user }) => {
+      // Auto-create the One-Off Tasks container for new users
+      await prisma.longTermTask.create({
+        data: {
+          title: 'One-Off Tasks',
+          isOneOff: true,
+          state: 'ACTIVE',
+          priority: 'MEDIUM',
+          userId: user.id!,
+          order: 0,
+        },
+      })
+    },
+  },
   callbacks: {
     session({ session, user }) {
       session.user.id = user.id

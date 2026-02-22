@@ -37,7 +37,7 @@ export function ProjectCardLink({
         emoji={emoji}
         priority={priority}
         state={state}
-        onClick={() => router.push(`/projects/${id}`)}
+        onClick={() => router.push(isOneOff ? '/one-off' : `/projects/${id}`)}
       />
       <div className="text-muted-foreground px-4 pb-2 text-xs">
         {shortTermTaskCount} task{shortTermTaskCount !== 1 ? 's' : ''}
