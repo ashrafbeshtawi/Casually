@@ -80,6 +80,7 @@ export default async function OneOffPage() {
                         priority={task.priority as Priority}
                         state={task.state as TaskState}
                         blockedBy={taskBlockedBy}
+                        taskType="shortTerm"
                         variant="compact"
                       />
                     )

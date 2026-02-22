@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session'
 import { type Priority, type TaskState } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { PriorityBadge } from '@/components/priority-badge'
-import { StateBadge } from '@/components/state-badge'
+import { StateChanger } from '@/components/state-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { ArrowLeft } from 'lucide-react'
 
@@ -78,7 +78,12 @@ export default async function ProjectDetailPage({
               priority={project.priority as Priority}
               showLabel
             />
-            <StateBadge state={project.state as TaskState} />
+            <StateChanger
+              taskId={project.id}
+              currentState={project.state as TaskState}
+              taskType="longTerm"
+              hasChildren={project.shortTermTasks.length > 0}
+            />
           </div>
         </div>
 
@@ -123,6 +128,7 @@ export default async function ProjectDetailPage({
                   priority={task.priority as Priority}
                   state={task.state as TaskState}
                   blockedBy={taskBlockedBy}
+                  taskType="shortTerm"
                   variant="compact"
                 />
               )

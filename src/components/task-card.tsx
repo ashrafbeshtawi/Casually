@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateBadge } from '@/components/state-badge'
+import { StateChanger } from '@/components/state-changer'
 
 interface TaskCardProps {
   id: string
@@ -14,18 +15,23 @@ interface TaskCardProps {
   state: TaskState
   blockedBy?: Array<{ type: string; taskId: string }>
   blockerNames?: string[]
+  taskType?: 'longTerm' | 'shortTerm' | 'routine'
+  hasChildren?: boolean
   onClick?: () => void
   variant?: 'default' | 'compact'
   className?: string
 }
 
 export function TaskCard({
+  id,
   title,
   description,
   emoji,
   priority,
   state,
   blockerNames,
+  taskType,
+  hasChildren,
   onClick,
   variant = 'default',
   className,
@@ -64,7 +70,17 @@ export function TaskCard({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <PriorityBadge priority={priority} size="sm" />
-          <StateBadge state={state} />
+          {taskType ? (
+            <StateChanger
+              taskId={id}
+              currentState={state}
+              taskType={taskType}
+              hasChildren={hasChildren}
+              size="sm"
+            />
+          ) : (
+            <StateBadge state={state} />
+          )}
         </div>
       </div>
 
