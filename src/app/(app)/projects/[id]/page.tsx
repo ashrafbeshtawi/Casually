@@ -7,6 +7,7 @@ import { TaskCard } from '@/components/task-card'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateChanger } from '@/components/state-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
+import { MoveTaskButton } from '@/components/move-task-button'
 import { ArrowLeft } from 'lucide-react'
 
 interface ProjectDetailPageProps {
@@ -119,18 +120,25 @@ export default async function ProjectDetailPage({
               }>
 
               return (
-                <TaskCard
-                  key={task.id}
-                  id={task.id}
-                  title={task.title}
-                  description={task.description}
-                  emoji={task.emoji}
-                  priority={task.priority as Priority}
-                  state={task.state as TaskState}
-                  blockedBy={taskBlockedBy}
-                  taskType="shortTerm"
-                  variant="compact"
-                />
+                <div key={task.id} className="flex items-center gap-1">
+                  <div className="min-w-0 flex-1">
+                    <TaskCard
+                      id={task.id}
+                      title={task.title}
+                      description={task.description}
+                      emoji={task.emoji}
+                      priority={task.priority as Priority}
+                      state={task.state as TaskState}
+                      blockedBy={taskBlockedBy}
+                      taskType="shortTerm"
+                      variant="compact"
+                    />
+                  </div>
+                  <MoveTaskButton
+                    taskId={task.id}
+                    currentParentId={project.id}
+                  />
+                </div>
               )
             })}
           </div>
