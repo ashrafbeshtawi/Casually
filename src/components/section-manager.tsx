@@ -15,6 +15,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Check, Pencil, Plus, Trash2, X } from 'lucide-react'
+import { toast } from 'sonner'
 
 /* ---------- Add Section ---------- */
 
@@ -40,8 +41,11 @@ export function AddSectionButton() {
       setName('')
       setShowInput(false)
       router.refresh()
+      toast.success('Section created')
     } catch (error) {
-      console.error('Failed to create section:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to create section'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -137,8 +141,11 @@ export function EditSectionName({
       }
       setEditing(false)
       router.refresh()
+      toast.success('Section updated')
     } catch (error) {
-      console.error('Failed to update section:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to update section'
+      toast.error(message)
       setName(currentName)
       setEditing(false)
     } finally {
@@ -148,15 +155,15 @@ export function EditSectionName({
 
   if (!editing) {
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1">
         <h2 className="text-lg font-semibold">{currentName}</h2>
         <Button
           size="icon"
           variant="ghost"
-          className="h-6 w-6"
+          className="h-8 w-8"
           onClick={() => setEditing(true)}
         >
-          <Pencil className="h-3 w-3" />
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
       </div>
     )
@@ -232,8 +239,11 @@ export function DeleteSectionButton({
       }
       setShowConfirm(false)
       router.refresh()
+      toast.success('Section deleted')
     } catch (error) {
-      console.error('Failed to delete section:', error)
+      const message =
+        error instanceof Error ? error.message : 'Failed to delete section'
+      toast.error(message)
     } finally {
       setIsLoading(false)
     }
@@ -244,10 +254,10 @@ export function DeleteSectionButton({
       <Button
         size="icon"
         variant="ghost"
-        className="h-6 w-6 text-muted-foreground hover:text-destructive"
+        className="h-8 w-8 text-muted-foreground hover:text-destructive"
         onClick={() => setShowConfirm(true)}
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className="h-3.5 w-3.5" />
       </Button>
 
       <AlertDialog open={showConfirm} onOpenChange={setShowConfirm}>

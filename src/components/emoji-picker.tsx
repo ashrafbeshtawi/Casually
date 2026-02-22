@@ -156,7 +156,7 @@ export function EmojiPicker({ value, onChange }: EmojiPickerProps) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-72 p-3" align="start">
+      <PopoverContent className="w-[min(18rem,calc(100vw-2rem))] p-3" align="start">
         <div className="space-y-3">
           {/* Search */}
           <Input

@@ -361,7 +361,7 @@ function BlockedByLinks({
           href={link.href}
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs transition-colors hover:bg-accent"
         >
-          <span className="max-w-[200px] truncate">{link.title}</span>
+          <span className="max-w-[150px] sm:max-w-[200px] truncate">{link.title}</span>
           <ArrowRight className="h-3 w-3 shrink-0" />
         </Link>
       ))}

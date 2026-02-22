@@ -149,7 +149,7 @@ export default async function ArchivePage() {
                         variant="compact"
                       />
                     </div>
-                    <span className="text-muted-foreground shrink-0 text-xs">
+                    <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
                       {formatCompletionDate(task.updatedAt)}
                     </span>
                   </div>
@@ -188,7 +188,7 @@ export default async function ArchivePage() {
                           variant="compact"
                         />
                       </div>
-                      <span className="text-muted-foreground shrink-0 text-xs">
+                      <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
                         {formatCompletionDate(task.updatedAt)}
                       </span>
                     </div>
@@ -226,7 +226,7 @@ export default async function ArchivePage() {
                         variant="compact"
                       />
                     </div>
-                    <span className="text-muted-foreground shrink-0 text-xs">
+                    <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
                       {formatCompletionDate(routine.updatedAt)}
                     </span>
                   </div>

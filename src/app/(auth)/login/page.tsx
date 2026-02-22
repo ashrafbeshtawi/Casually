@@ -2,8 +2,8 @@ import { signIn } from "@/lib/auth"
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-8 shadow-sm">
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="w-full max-w-sm space-y-6 rounded-lg border border-border bg-card p-6 sm:p-8 shadow-sm">
         <div className="space-y-2 text-center">
           <h1 className="text-2xl font-bold tracking-tight text-card-foreground">
             Welcome to Casually

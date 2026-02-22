@@ -214,7 +214,7 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
+        <h1 className="text-xl sm:text-2xl font-bold tracking-tight">Dashboard</h1>
         <p className="text-muted-foreground text-sm">
           Your task overview at a glance.
         </p>

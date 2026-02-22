@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/session'
 import { getOrCreateOneOffProject } from '@/lib/one-off'
 import { type Priority, type TaskState, STATE_LABELS } from '@/types'
 import { TaskCard } from '@/components/task-card'
+import { DeleteTaskButton } from '@/components/delete-task-button'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { Zap } from 'lucide-react'
 
@@ -42,7 +43,7 @@ export default async function OneOffPage() {
             <Zap className="text-primary h-5 w-5" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold tracking-tight">One-Off Tasks</h1>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">One-Off Tasks</h1>
             <p className="text-muted-foreground text-sm">
               Quick tasks that don&apos;t belong to any project.
             </p>
@@ -71,18 +72,26 @@ export default async function OneOffPage() {
                     }>
 
                     return (
-                      <TaskCard
-                        key={task.id}
-                        id={task.id}
-                        title={task.title}
-                        description={task.description}
-                        emoji={task.emoji}
-                        priority={task.priority as Priority}
-                        state={task.state as TaskState}
-                        blockedBy={taskBlockedBy}
-                        taskType="shortTerm"
-                        variant="compact"
-                      />
+                      <div key={task.id} className="flex items-center gap-1">
+                        <div className="min-w-0 flex-1">
+                          <TaskCard
+                            id={task.id}
+                            title={task.title}
+                            description={task.description}
+                            emoji={task.emoji}
+                            priority={task.priority as Priority}
+                            state={task.state as TaskState}
+                            blockedBy={taskBlockedBy}
+                            taskType="shortTerm"
+                            variant="compact"
+                          />
+                        </div>
+                        <DeleteTaskButton
+                          taskId={task.id}
+                          taskType="shortTerm"
+                          taskTitle={task.title}
+                        />
+                      </div>
                     )
                   })}
                 </div>

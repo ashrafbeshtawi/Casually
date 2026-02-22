@@ -139,7 +139,7 @@ export function DragHandle({
   return (
     <button
       type="button"
-      className="text-muted-foreground hover:text-foreground shrink-0 cursor-grab touch-none p-1 active:cursor-grabbing"
+      className="text-muted-foreground hover:text-foreground shrink-0 cursor-grab touch-none p-2 active:cursor-grabbing"
       {...attributes}
       {...listeners}
     >

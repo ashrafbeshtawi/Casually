@@ -6,6 +6,7 @@ import { type Priority, type TaskState } from '@/types'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateChanger } from '@/components/state-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
+import { DeleteTaskButton } from '@/components/delete-task-button'
 import { SortableTaskList } from '@/components/sortable-task-list'
 import { ArrowLeft } from 'lucide-react'
 
@@ -57,13 +58,13 @@ export default async function ProjectDetailPage({
 
       {/* Project header */}
       <div className="space-y-3">
-        <div className="flex items-start justify-between gap-4">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+          <div className="flex items-center gap-3 min-w-0">
             {project.emoji && (
-              <span className="text-3xl">{project.emoji}</span>
+              <span className="text-3xl shrink-0">{project.emoji}</span>
             )}
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold tracking-tight truncate">
                 {project.title}
               </h1>
               {project.isOneOff && (
@@ -84,6 +85,15 @@ export default async function ProjectDetailPage({
               taskType="longTerm"
               hasChildren={project.shortTermTasks.length > 0}
             />
+            {!project.isOneOff && (
+              <DeleteTaskButton
+                taskId={project.id}
+                taskType="longTerm"
+                taskTitle={project.title}
+                hasChildren={project.shortTermTasks.length > 0}
+                redirectTo="/projects"
+              />
+            )}
           </div>
         </div>
 

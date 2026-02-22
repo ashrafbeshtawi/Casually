@@ -67,7 +67,7 @@ export function TaskCard({
     >
       {/* Top row: emoji + title on left, badges on right */}
       <div className="flex items-start justify-between gap-2">
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {emoji && <span className="shrink-0 text-base">{emoji}</span>}
           <span className="truncate text-sm font-medium">{title}</span>
           {intervalLabel && (
@@ -76,7 +76,7 @@ export function TaskCard({
             </Badge>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
           <PriorityBadge priority={priority} size="sm" />
           {taskType ? (
             <StateChanger

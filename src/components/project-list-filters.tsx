@@ -28,13 +28,13 @@ export function ProjectListFilters() {
   }
 
   return (
-    <div className="flex flex-wrap gap-1">
+    <div className="flex flex-wrap gap-1.5">
       {FILTER_OPTIONS.map((option) => (
         <button
           key={option.value}
           onClick={() => handleFilterChange(option.value)}
           className={cn(
-            'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            'rounded-md px-3 py-2 text-sm font-medium transition-colors',
             currentState === option.value
               ? 'bg-primary text-primary-foreground'
               : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
