@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { cascadeOnDelete } from "@/lib/state-machine"
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -134,6 +135,10 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       { status: 400 }
     )
   }
+
+  // Cascade: remove this task from other long-term tasks' blockedBy arrays
+  // and remove parent_block references from children
+  await cascadeOnDelete(prisma, id, "longTerm")
 
   await prisma.longTermTask.delete({
     where: { id },
