@@ -1,6 +1,10 @@
+import { PrismaNeon } from '@prisma/adapter-neon'
 import { PrismaClient } from '../src/generated/prisma/client'
 
-const prisma = new PrismaClient()
+const adapter = new PrismaNeon({
+  connectionString: process.env.DATABASE_URL,
+})
+const prisma = new PrismaClient({ adapter })
 
 async function main() {
   // Clean existing data (order matters due to foreign key constraints)
