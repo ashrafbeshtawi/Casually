@@ -12,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { EmojiPicker } from '@/components/emoji-picker'
 import {
   type Priority,
   type Interval,
@@ -138,13 +139,10 @@ export function TaskForm({
 
       {/* Emoji */}
       <div className="space-y-2">
-        <Label htmlFor="emoji">Emoji</Label>
-        <Input
-          id="emoji"
-          placeholder="e.g. \uD83D\uDE80"
-          value={emoji}
-          onChange={(e) => setEmoji(e.target.value)}
-          className="w-20"
+        <Label>Emoji</Label>
+        <EmojiPicker
+          value={emoji || null}
+          onChange={(val) => setEmoji(val ?? '')}
         />
       </div>
 
