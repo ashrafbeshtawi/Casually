@@ -93,7 +93,10 @@ export default async function DashboardPage() {
     prisma.routine.count({
       where: {
         state: 'BLOCKED',
-        section: { userId: user.id },
+        OR: [
+          { section: { userId: user.id } },
+          { sectionId: null },
+        ],
       },
     }),
     // Completed counts
@@ -109,14 +112,20 @@ export default async function DashboardPage() {
     prisma.routine.count({
       where: {
         state: 'DONE',
-        section: { userId: user.id },
+        OR: [
+          { section: { userId: user.id } },
+          { sectionId: null },
+        ],
       },
     }),
     // Active routines
     prisma.routine.findMany({
       where: {
         state: 'ACTIVE',
-        section: { userId: user.id },
+        OR: [
+          { section: { userId: user.id } },
+          { sectionId: null },
+        ],
       },
       include: {
         section: {
@@ -143,7 +152,10 @@ export default async function DashboardPage() {
     prisma.routine.findMany({
       where: {
         state: 'DONE',
-        section: { userId: user.id },
+        OR: [
+          { section: { userId: user.id } },
+          { sectionId: null },
+        ],
       },
       orderBy: { updatedAt: 'desc' },
       take: 5,

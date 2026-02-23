@@ -8,6 +8,7 @@ import { StateChanger } from '@/components/state-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { DeleteTaskButton } from '@/components/delete-task-button'
 import { SortableTaskList } from '@/components/sortable-task-list'
+import { EditTaskDialog } from '@/components/edit-task-dialog'
 import { ArrowLeft } from 'lucide-react'
 
 interface ProjectDetailPageProps {
@@ -84,6 +85,16 @@ export default async function ProjectDetailPage({
               currentState={project.state as TaskState}
               taskType="longTerm"
               hasChildren={project.shortTermTasks.length > 0}
+            />
+            <EditTaskDialog
+              taskId={project.id}
+              taskType="longTerm"
+              defaultValues={{
+                title: project.title,
+                description: project.description,
+                emoji: project.emoji,
+                priority: project.priority as Priority,
+              }}
             />
             {!project.isOneOff && (
               <DeleteTaskButton

@@ -1,10 +1,11 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
+import { type Priority, type TaskState, type Interval, PRIORITY_COLORS } from '@/types'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateBadge } from '@/components/state-badge'
 import { StateChanger } from '@/components/state-changer'
+import { EditTaskDialog } from '@/components/edit-task-dialog'
 import { Badge } from '@/components/ui/badge'
 
 interface TaskCardProps {
@@ -19,6 +20,9 @@ interface TaskCardProps {
   taskType?: 'longTerm' | 'shortTerm' | 'routine'
   hasChildren?: boolean
   intervalLabel?: string | null
+  interval?: Interval | null
+  customInterval?: string | null
+  parentId?: string
   onClick?: () => void
   variant?: 'default' | 'compact'
   className?: string
@@ -35,6 +39,9 @@ export function TaskCard({
   taskType,
   hasChildren,
   intervalLabel,
+  interval,
+  customInterval,
+  parentId,
   onClick,
   variant = 'default',
   className,
@@ -76,16 +83,31 @@ export function TaskCard({
             </Badge>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <PriorityBadge priority={priority} size="sm" />
           {taskType ? (
-            <StateChanger
-              taskId={id}
-              currentState={state}
-              taskType={taskType}
-              hasChildren={hasChildren}
-              size="sm"
-            />
+            <>
+              <StateChanger
+                taskId={id}
+                currentState={state}
+                taskType={taskType}
+                hasChildren={hasChildren}
+                size="sm"
+              />
+              <EditTaskDialog
+                taskId={id}
+                taskType={taskType}
+                defaultValues={{
+                  title,
+                  description,
+                  emoji,
+                  priority,
+                  parentId,
+                  interval,
+                  customInterval,
+                }}
+              />
+            </>
           ) : (
             <StateBadge state={state} />
           )}

@@ -62,6 +62,7 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
               state={task.state}
               blockedBy={task.blockedBy}
               taskType="shortTerm"
+              parentId={task.parentId}
               variant="compact"
             />
           </div>

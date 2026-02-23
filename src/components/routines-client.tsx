@@ -184,6 +184,8 @@ export function RoutinesClient({ sections: initialSections, routines: initialRou
                             priority={routine.priority}
                             state={routine.state}
                             taskType="routine"
+                            interval={routine.interval}
+                            customInterval={routine.customInterval}
                             intervalLabel={getIntervalLabel(
                               routine.interval,
                               routine.customInterval
@@ -235,6 +237,8 @@ export function RoutinesClient({ sections: initialSections, routines: initialRou
                     priority={routine.priority}
                     state={routine.state}
                     taskType="routine"
+                    interval={routine.interval}
+                    customInterval={routine.customInterval}
                     intervalLabel={getIntervalLabel(
                       routine.interval,
                       routine.customInterval
