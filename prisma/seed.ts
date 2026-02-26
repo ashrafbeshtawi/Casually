@@ -7,17 +7,13 @@ const adapter = new PrismaNeon({
 const prisma = new PrismaClient({ adapter })
 
 async function main() {
-  // Clean existing data (order matters due to foreign key constraints)
-  await prisma.routine.deleteMany()
-  await prisma.routineSection.deleteMany()
-  await prisma.shortTermTask.deleteMany()
-  await prisma.longTermTask.deleteMany()
+  await prisma.shortRunningTask.deleteMany()
+  await prisma.longRunningTask.deleteMany()
   await prisma.session.deleteMany()
   await prisma.account.deleteMany()
   await prisma.verificationToken.deleteMany()
   await prisma.user.deleteMany()
 
-  // Create test user
   const user = await prisma.user.create({
     data: {
       email: 'test@example.com',
@@ -25,11 +21,10 @@ async function main() {
     },
   })
 
-  // Create One-Off Tasks container (special, isOneOff=true)
-  const oneOffProject = await prisma.longTermTask.create({
+  const oneOff = await prisma.longRunningTask.create({
     data: {
       title: 'One-Off Tasks',
-      isOneOff: true,
+      emoji: '📌',
       state: 'ACTIVE',
       priority: 'MEDIUM',
       userId: user.id,
@@ -37,8 +32,18 @@ async function main() {
     },
   })
 
-  // Create sample long-term tasks (projects)
-  const websiteProject = await prisma.longTermTask.create({
+  const routines = await prisma.longRunningTask.create({
+    data: {
+      title: 'Routines',
+      emoji: '🔄',
+      state: 'ACTIVE',
+      priority: 'MEDIUM',
+      userId: user.id,
+      order: 1,
+    },
+  })
+
+  const websiteProject = await prisma.longRunningTask.create({
     data: {
       title: 'Redesign Website',
       description: 'Complete overhaul of the company website',
@@ -46,11 +51,11 @@ async function main() {
       priority: 'HIGH',
       state: 'ACTIVE',
       userId: user.id,
-      order: 1,
+      order: 2,
     },
   })
 
-  const fitnessProject = await prisma.longTermTask.create({
+  const fitnessProject = await prisma.longRunningTask.create({
     data: {
       title: 'Get Fit',
       description: 'Health and fitness goals for the year',
@@ -58,11 +63,11 @@ async function main() {
       priority: 'MEDIUM',
       state: 'ACTIVE',
       userId: user.id,
-      order: 2,
+      order: 3,
     },
   })
 
-  const learningProject = await prisma.longTermTask.create({
+  await prisma.longRunningTask.create({
     data: {
       title: 'Learn Rust',
       description: 'Complete the Rust programming course',
@@ -70,70 +75,31 @@ async function main() {
       priority: 'LOW',
       state: 'WAITING',
       userId: user.id,
-      order: 3,
+      order: 4,
     },
   })
 
-  // Create short-term tasks under projects
-  await prisma.shortTermTask.createMany({
+  await prisma.shortRunningTask.createMany({
     data: [
-      // One-off tasks
-      { title: 'Buy groceries', emoji: '🛒', priority: 'MEDIUM', state: 'ACTIVE', parentId: oneOffProject.id, order: 0 },
-      { title: 'Call dentist', emoji: '🦷', priority: 'HIGH', state: 'WAITING', parentId: oneOffProject.id, order: 1 },
-      { title: 'Return package', priority: 'LOW', state: 'DONE', parentId: oneOffProject.id, order: 2 },
-
-      // Website project tasks
+      { title: 'Buy groceries', emoji: '🛒', priority: 'MEDIUM', state: 'ACTIVE', parentId: oneOff.id, order: 0 },
+      { title: 'Call dentist', emoji: '🦷', priority: 'HIGH', state: 'WAITING', parentId: oneOff.id, order: 1 },
+      { title: 'Return package', priority: 'LOW', state: 'DONE', parentId: oneOff.id, order: 2 },
+      { title: 'Meditate', emoji: '🧘', priority: 'HIGH', state: 'ACTIVE', parentId: routines.id, order: 0 },
+      { title: 'Exercise', emoji: '🏃', priority: 'HIGHEST', state: 'ACTIVE', parentId: routines.id, order: 1 },
+      { title: 'Journal', emoji: '📓', priority: 'MEDIUM', state: 'ACTIVE', parentId: routines.id, order: 2 },
       { title: 'Create wireframes', emoji: '✏️', priority: 'HIGHEST', state: 'ACTIVE', parentId: websiteProject.id, order: 0 },
       { title: 'Design mockups', emoji: '🎨', priority: 'HIGH', state: 'WAITING', parentId: websiteProject.id, order: 1 },
       { title: 'Implement frontend', priority: 'HIGH', state: 'WAITING', parentId: websiteProject.id, order: 2 },
-      { title: 'Set up hosting', priority: 'MEDIUM', state: 'WAITING', parentId: websiteProject.id, order: 3 },
-
-      // Fitness project tasks
       { title: 'Join a gym', emoji: '🏋️', priority: 'HIGH', state: 'DONE', parentId: fitnessProject.id, order: 0 },
       { title: 'Create workout plan', priority: 'MEDIUM', state: 'ACTIVE', parentId: fitnessProject.id, order: 1 },
       { title: 'Meal prep Sunday', emoji: '🥗', priority: 'MEDIUM', state: 'WAITING', parentId: fitnessProject.id, order: 2 },
-
-      // Learning project tasks (parent is WAITING, so children should be BLOCKED with parent_block)
-      { title: 'Set up Rust toolchain', priority: 'MEDIUM', state: 'BLOCKED', parentId: learningProject.id, order: 0, blockedBy: JSON.stringify([{ type: 'parent_block', taskId: learningProject.id }]) },
-      { title: 'Complete chapter 1', emoji: '📖', priority: 'MEDIUM', state: 'BLOCKED', parentId: learningProject.id, order: 1, blockedBy: JSON.stringify([{ type: 'parent_block', taskId: learningProject.id }]) },
     ],
   })
 
-  // Create routine sections
-  const morningSection = await prisma.routineSection.create({
-    data: {
-      name: 'Morning Routine',
-      order: 0,
-      userId: user.id,
-    },
-  })
-
-  const weeklySection = await prisma.routineSection.create({
-    data: {
-      name: 'Weekly Tasks',
-      order: 1,
-      userId: user.id,
-    },
-  })
-
-  // Create routines
-  await prisma.routine.createMany({
-    data: [
-      { title: 'Meditate', emoji: '🧘', priority: 'HIGH', state: 'ACTIVE', interval: 'DAILY', sectionId: morningSection.id, order: 0 },
-      { title: 'Exercise', emoji: '🏃', priority: 'HIGHEST', state: 'ACTIVE', interval: 'DAILY', sectionId: morningSection.id, order: 1 },
-      { title: 'Journal', emoji: '📓', priority: 'MEDIUM', state: 'ACTIVE', interval: 'DAILY', sectionId: morningSection.id, order: 2 },
-      { title: 'Review goals', emoji: '🎯', priority: 'HIGH', state: 'ACTIVE', interval: 'WEEKLY', sectionId: weeklySection.id, order: 0 },
-      { title: 'Clean apartment', emoji: '🧹', priority: 'MEDIUM', state: 'ACTIVE', interval: 'WEEKLY', sectionId: weeklySection.id, order: 1 },
-      { title: 'Check finances', emoji: '💰', priority: 'LOW', state: 'WAITING', interval: 'MONTHLY', sectionId: weeklySection.id, order: 2 },
-    ],
-  })
-
-  console.log('Seed completed successfully!')
+  console.log('Seed completed!')
   console.log(`Created user: ${user.email}`)
-  console.log(`Created ${await prisma.longTermTask.count()} long-term tasks`)
-  console.log(`Created ${await prisma.shortTermTask.count()} short-term tasks`)
-  console.log(`Created ${await prisma.routineSection.count()} routine sections`)
-  console.log(`Created ${await prisma.routine.count()} routines`)
+  console.log(`Created ${await prisma.longRunningTask.count()} long-running tasks`)
+  console.log(`Created ${await prisma.shortRunningTask.count()} short-running tasks`)
 }
 
 main()

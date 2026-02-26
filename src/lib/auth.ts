@@ -11,16 +11,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   },
   events: {
     createUser: async ({ user }) => {
-      // Auto-create the One-Off Tasks container for new users
-      await prisma.longTermTask.create({
-        data: {
-          title: 'One-Off Tasks',
-          isOneOff: true,
-          state: 'ACTIVE',
-          priority: 'MEDIUM',
-          userId: user.id!,
-          order: 0,
-        },
+      await prisma.longRunningTask.createMany({
+        data: [
+          {
+            title: 'One-Off Tasks',
+            emoji: '📌',
+            state: 'ACTIVE',
+            priority: 'MEDIUM',
+            userId: user.id!,
+            order: 0,
+          },
+          {
+            title: 'Routines',
+            emoji: '🔄',
+            state: 'ACTIVE',
+            priority: 'MEDIUM',
+            userId: user.id!,
+            order: 1,
+          },
+        ],
       })
     },
   },
