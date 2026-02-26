@@ -18,8 +18,8 @@ android {
         versionName = "1.0"
 
         // Set your backend URL here
-        buildConfigField("String", "API_BASE_URL", "\"https://your-casually-app.vercel.app\"")
-        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"${project.findProperty("GOOGLE_CLIENT_ID") ?: ""}\"")
+        buildConfigField("String", "API_BASE_URL", "\"https://casually-two.vercel.app\"")
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"958956296630-d9034dppssoab4tk06rrlnv0ie2tfb5p.apps.googleusercontent.com\"")
     }
 
     buildFeatures {
@@ -94,9 +94,6 @@ dependencies {
 
     // Coil for images
     implementation("io.coil-kt:coil-compose:2.7.0")
-
-    // Pull-to-refresh
-    implementation("androidx.compose.material3:material3-adaptive:1.0.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
