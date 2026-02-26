@@ -16,7 +16,9 @@
       "Bash(npx tsc:*)",
       "Bash(ls:*)",
       "Bash(npx next:*)",
-      "Bash(openssl rand:*)"
+      "Bash(openssl rand:*)",
+      "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes, proceed with \\\\`npx prisma db push --force-reset\\\\`. The user has approved resetting the database. Continue with the remaining steps \\(generate, commit\\).\" npx prisma:*)",
+      "Bash(git check-ignore:*)"
     ]
   }
 }
