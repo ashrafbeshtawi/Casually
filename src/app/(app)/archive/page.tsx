@@ -1,30 +1,13 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
-import { type Priority, type TaskState, type Interval } from '@/types'
+import { type Priority, type TaskState } from '@/types'
 import { TaskCard } from '@/components/task-card'
-import { Archive, FolderKanban, ListChecks, RefreshCw } from 'lucide-react'
+import { Archive, FolderKanban, ListChecks } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const INTERVAL_LABELS: Record<string, string> = {
-  DAILY: 'Daily',
-  WEEKLY: 'Weekly',
-  BIWEEKLY: 'Biweekly',
-  MONTHLY: 'Monthly',
-  CUSTOM: 'Custom',
-}
-
-function getIntervalLabel(
-  interval: Interval | null,
-  customInterval: string | null
-): string | null {
-  if (!interval) return null
-  if (interval === 'CUSTOM' && customInterval) return customInterval
-  return INTERVAL_LABELS[interval] ?? null
-}
 
 function formatCompletionDate(date: Date): string {
   const now = new Date()
@@ -57,20 +40,20 @@ export default async function ArchivePage() {
   }
 
   // Fetch all DONE items in parallel
-  const [doneLongTerm, doneShortTerm, doneRoutines] = await Promise.all([
-    prisma.longTermTask.findMany({
+  const [doneLongRunning, doneShortRunning] = await Promise.all([
+    prisma.longRunningTask.findMany({
       where: {
         userId: user.id,
         state: 'DONE',
       },
       include: {
         _count: {
-          select: { shortTermTasks: true },
+          select: { children: true },
         },
       },
       orderBy: { updatedAt: 'desc' },
     }),
-    prisma.shortTermTask.findMany({
+    prisma.shortRunningTask.findMany({
       where: {
         state: 'DONE',
         parent: { userId: user.id },
@@ -82,28 +65,9 @@ export default async function ArchivePage() {
       },
       orderBy: { updatedAt: 'desc' },
     }),
-    prisma.routine.findMany({
-      where: {
-        state: 'DONE',
-        OR: [
-          {
-            section: {
-              userId: user.id,
-            },
-          },
-          {
-            sectionId: null,
-          },
-        ],
-      },
-      orderBy: { updatedAt: 'desc' },
-    }),
   ])
 
-  const hasAnyItems =
-    doneLongTerm.length > 0 ||
-    doneShortTerm.length > 0 ||
-    doneRoutines.length > 0
+  const hasAnyItems = doneLongRunning.length > 0 || doneShortRunning.length > 0
 
   return (
     <div className="space-y-8">
@@ -124,18 +88,18 @@ export default async function ArchivePage() {
         </div>
       ) : (
         <>
-          {/* Projects (completed LongTermTasks) */}
-          {doneLongTerm.length > 0 && (
+          {/* Projects (completed LongRunningTasks) */}
+          {doneLongRunning.length > 0 && (
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <FolderKanban className="text-muted-foreground h-5 w-5" />
                 <h2 className="text-lg font-semibold">Projects</h2>
                 <span className="text-muted-foreground text-sm">
-                  ({doneLongTerm.length})
+                  ({doneLongRunning.length})
                 </span>
               </div>
               <div className="grid gap-2">
-                {doneLongTerm.map((task) => (
+                {doneLongRunning.map((task) => (
                   <div key={task.id} className="flex items-center gap-2">
                     <div className="min-w-0 flex-1">
                       <TaskCard
@@ -144,8 +108,8 @@ export default async function ArchivePage() {
                         emoji={task.emoji}
                         priority={task.priority as Priority}
                         state={task.state as TaskState}
-                        taskType="longTerm"
-                        hasChildren={task._count.shortTermTasks > 0}
+                        taskType="long"
+                        hasChildren={task._count.children > 0}
                         variant="compact"
                       />
                     </div>
@@ -158,18 +122,18 @@ export default async function ArchivePage() {
             </section>
           )}
 
-          {/* Tasks (completed ShortTermTasks) */}
-          {doneShortTerm.length > 0 && (
+          {/* Tasks (completed ShortRunningTasks) */}
+          {doneShortRunning.length > 0 && (
             <section className="space-y-4">
               <div className="flex items-center gap-2">
                 <ListChecks className="text-muted-foreground h-5 w-5" />
                 <h2 className="text-lg font-semibold">Tasks</h2>
                 <span className="text-muted-foreground text-sm">
-                  ({doneShortTerm.length})
+                  ({doneShortRunning.length})
                 </span>
               </div>
               <div className="grid gap-2">
-                {doneShortTerm.map((task) => {
+                {doneShortRunning.map((task) => {
                   const parentLabel = task.parent.emoji
                     ? `${task.parent.emoji} ${task.parent.title}`
                     : task.parent.title
@@ -184,7 +148,7 @@ export default async function ArchivePage() {
                           emoji={task.emoji}
                           priority={task.priority as Priority}
                           state={task.state as TaskState}
-                          taskType="shortTerm"
+                          taskType="short"
                           variant="compact"
                         />
                       </div>
@@ -194,43 +158,6 @@ export default async function ArchivePage() {
                     </div>
                   )
                 })}
-              </div>
-            </section>
-          )}
-
-          {/* Routines (completed Routines) */}
-          {doneRoutines.length > 0 && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="text-muted-foreground h-5 w-5" />
-                <h2 className="text-lg font-semibold">Routines</h2>
-                <span className="text-muted-foreground text-sm">
-                  ({doneRoutines.length})
-                </span>
-              </div>
-              <div className="grid gap-2">
-                {doneRoutines.map((routine) => (
-                  <div key={routine.id} className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1">
-                      <TaskCard
-                        id={routine.id}
-                        title={routine.title}
-                        emoji={routine.emoji}
-                        priority={routine.priority as Priority}
-                        state={routine.state as TaskState}
-                        taskType="routine"
-                        intervalLabel={getIntervalLabel(
-                          routine.interval as Interval | null,
-                          routine.customInterval
-                        )}
-                        variant="compact"
-                      />
-                    </div>
-                    <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
-                      {formatCompletionDate(routine.updatedAt)}
-                    </span>
-                  </div>
-                ))}
               </div>
             </section>
           )}

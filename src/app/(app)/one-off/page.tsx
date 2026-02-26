@@ -1,7 +1,6 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
-import { getOrCreateOneOffProject } from '@/lib/one-off'
 import { type Priority, type TaskState, STATE_LABELS } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { DeleteTaskButton } from '@/components/delete-task-button'
@@ -16,10 +15,41 @@ export default async function OneOffPage() {
     redirect('/login')
   }
 
-  const oneOff = await getOrCreateOneOffProject(user.id)
+  const oneOff = await prisma.longRunningTask.findFirst({
+    where: { userId: user.id, title: 'One-Off Tasks' },
+  })
 
-  const tasks = await prisma.shortTermTask.findMany({
+  if (!oneOff) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center gap-3">
+          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
+            <Zap className="text-primary h-5 w-5" />
+          </div>
+          <div>
+            <h1 className="text-xl sm:text-2xl font-bold tracking-tight">One-Off Tasks</h1>
+            <p className="text-muted-foreground text-sm">
+              Quick tasks that don&apos;t belong to any project.
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+          <Zap className="text-muted-foreground/50 mb-3 h-10 w-10" />
+          <p className="text-muted-foreground text-sm">
+            No &quot;One-Off Tasks&quot; project found. Create a project titled &quot;One-Off Tasks&quot; to get started.
+          </p>
+        </div>
+      </div>
+    )
+  }
+
+  const tasks = await prisma.shortRunningTask.findMany({
     where: { parentId: oneOff.id },
+    include: {
+      blockedBy: {
+        select: { id: true, title: true, emoji: true },
+      },
+    },
     orderBy: { order: 'asc' },
   })
 
@@ -66,10 +96,11 @@ export default async function OneOffPage() {
                 </h2>
                 <div className="grid gap-2">
                   {stateTasks.map((task) => {
-                    const taskBlockedBy = task.blockedBy as Array<{
-                      type: string
-                      taskId: string
-                    }>
+                    const blockerName = task.blockedBy
+                      ? (task.blockedBy.emoji
+                          ? `${task.blockedBy.emoji} ${task.blockedBy.title}`
+                          : task.blockedBy.title)
+                      : null
 
                     return (
                       <div key={task.id} className="flex items-center gap-1">
@@ -81,14 +112,14 @@ export default async function OneOffPage() {
                             emoji={task.emoji}
                             priority={task.priority as Priority}
                             state={task.state as TaskState}
-                            blockedBy={taskBlockedBy}
-                            taskType="shortTerm"
+                            blockerName={blockerName}
+                            taskType="short"
                             variant="compact"
                           />
                         </div>
                         <DeleteTaskButton
                           taskId={task.id}
-                          taskType="shortTerm"
+                          taskType="short"
                           taskTitle={task.title}
                         />
                       </div>
