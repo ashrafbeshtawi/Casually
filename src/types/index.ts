@@ -1,31 +1,24 @@
-// Shared TypeScript types mirroring Prisma models for frontend components
-
 export type Priority = 'HIGHEST' | 'HIGH' | 'MEDIUM' | 'LOW' | 'LOWEST'
 export type TaskState = 'ACTIVE' | 'WAITING' | 'BLOCKED' | 'DONE'
-export type Interval = 'DAILY' | 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY' | 'CUSTOM'
 
-export interface BlockEntry {
-  type: 'task_block' | 'parent_block'
-  taskId: string
-}
-
-export interface LongTermTask {
+export interface LongRunningTask {
   id: string
   title: string
   description: string | null
   emoji: string | null
   priority: Priority
   state: TaskState
-  isOneOff: boolean
   order: number
+  blockedById: string | null
+  blockedBy?: LongRunningTask | null
   userId: string
-  blockedBy: BlockEntry[]
-  shortTermTasks?: ShortTermTask[]
+  children?: ShortRunningTask[]
+  _count?: { children: number }
   createdAt: string
   updatedAt: string
 }
 
-export interface ShortTermTask {
+export interface ShortRunningTask {
   id: string
   title: string
   description: string | null
@@ -34,35 +27,9 @@ export interface ShortTermTask {
   state: TaskState
   order: number
   parentId: string
-  parent?: LongTermTask
-  blockedBy: BlockEntry[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface RoutineSection {
-  id: string
-  name: string
-  order: number
-  userId: string
-  routines?: Routine[]
-  createdAt: string
-  updatedAt: string
-}
-
-export interface Routine {
-  id: string
-  title: string
-  description: string | null
-  emoji: string | null
-  priority: Priority
-  state: TaskState
-  interval: Interval | null
-  customInterval: string | null
-  order: number
-  sectionId: string | null
-  section?: RoutineSection
-  blockedBy: BlockEntry[]
+  parent?: LongRunningTask
+  blockedById: string | null
+  blockedBy?: ShortRunningTask | null
   createdAt: string
   updatedAt: string
 }
