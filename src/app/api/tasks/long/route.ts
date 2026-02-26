@@ -12,25 +12,13 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const priority = searchParams.get("priority")
 
-  const where: Record<string, unknown> = {
-    userId: session.user.id,
-  }
+  const where: Record<string, unknown> = { userId: session.user.id }
+  if (state) where.state = state
+  if (priority) where.priority = priority
 
-  if (state) {
-    where.state = state
-  }
-
-  if (priority) {
-    where.priority = priority
-  }
-
-  const tasks = await prisma.longTermTask.findMany({
+  const tasks = await prisma.longRunningTask.findMany({
     where,
-    include: {
-      _count: {
-        select: { shortTermTasks: true },
-      },
-    },
+    include: { _count: { select: { children: true } } },
     orderBy: { order: "asc" },
   })
 
@@ -44,31 +32,29 @@ export async function POST(request: NextRequest) {
   }
 
   const body = await request.json()
-  const { title, description, emoji, priority, order } = body
+  const { title, description, emoji, priority, state } = body
 
   if (!title || typeof title !== "string" || !title.trim()) {
-    return NextResponse.json(
-      { error: "Title is required" },
-      { status: 400 }
-    )
+    return NextResponse.json({ error: "Title is required" }, { status: 400 })
   }
 
   const validPriorities = ["HIGHEST", "HIGH", "MEDIUM", "LOW", "LOWEST"]
-  if (!priority || !validPriorities.includes(priority)) {
-    return NextResponse.json(
-      { error: "Valid priority is required" },
-      { status: 400 }
-    )
+  if (priority && !validPriorities.includes(priority)) {
+    return NextResponse.json({ error: "Invalid priority" }, { status: 400 })
   }
 
-  const task = await prisma.longTermTask.create({
+  const validStates = ["ACTIVE", "WAITING", "BLOCKED", "DONE"]
+  if (state && !validStates.includes(state)) {
+    return NextResponse.json({ error: "Invalid state" }, { status: 400 })
+  }
+
+  const task = await prisma.longRunningTask.create({
     data: {
       title: title.trim(),
       description: description?.trim() || null,
       emoji: emoji?.trim() || null,
-      priority,
-      state: "ACTIVE",
-      order: typeof order === "number" ? order : 0,
+      priority: priority || "MEDIUM",
+      state: state || "WAITING",
       userId: session.user.id,
     },
   })
