@@ -77,7 +77,9 @@ fun LoginScreen(
                                 IntentSenderRequest.Builder(result.pendingIntent.intentSender).build()
                             )
                         }
-                        .addOnFailureListener { /* Could show error */ }
+                        .addOnFailureListener { e ->
+                            android.util.Log.e("LoginScreen", "Sign-in failed", e)
+                        }
                 }) {
                     Text("Sign in with Google")
                 }

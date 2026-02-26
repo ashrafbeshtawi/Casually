@@ -19,7 +19,7 @@ android {
 
         // Set your backend URL here
         buildConfigField("String", "API_BASE_URL", "\"https://casually-two.vercel.app\"")
-        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"958956296630-d9034dppssoab4tk06rrlnv0ie2tfb5p.apps.googleusercontent.com\"")
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"958956296630-n2ufck7aj8eim8grik3unekg9c0lsinv.apps.googleusercontent.com\"")
     }
 
     buildFeatures {
