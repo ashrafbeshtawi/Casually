@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
-import { type Priority, type TaskState, type Interval } from '@/types'
+import { type Priority, type TaskState } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { Card, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -12,30 +12,8 @@ import {
   CheckCircle2,
   ArrowRight,
   AlertTriangle,
-  RefreshCw,
   Clock,
 } from 'lucide-react'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-const INTERVAL_LABELS: Record<string, string> = {
-  DAILY: 'Daily',
-  WEEKLY: 'Weekly',
-  BIWEEKLY: 'Biweekly',
-  MONTHLY: 'Monthly',
-  CUSTOM: 'Custom',
-}
-
-function getIntervalLabel(
-  interval: Interval | null,
-  customInterval: string | null
-): string | null {
-  if (!interval) return null
-  if (interval === 'CUSTOM' && customInterval) return customInterval
-  return INTERVAL_LABELS[interval] ?? null
-}
 
 // ---------------------------------------------------------------------------
 // Page
@@ -50,24 +28,20 @@ export default async function DashboardPage() {
   // Fetch all data in parallel
   const [
     activeProjects,
-    activeShortTermTasks,
+    activeShortRunningTasks,
     blockedLongTerm,
     blockedShortTerm,
-    blockedRoutines,
     completedLongTerm,
     completedShortTerm,
-    completedRoutines,
-    activeRoutines,
     recentlyCompletedShort,
-    recentlyCompletedRoutines,
   ] = await Promise.all([
     // Active projects count
-    prisma.longTermTask.findMany({
+    prisma.longRunningTask.findMany({
       where: { userId: user.id, state: 'ACTIVE' },
       select: { id: true },
     }),
-    // Active short-term tasks (with parent info for grouping)
-    prisma.shortTermTask.findMany({
+    // Active short-running tasks (with parent info for grouping)
+    prisma.shortRunningTask.findMany({
       where: {
         state: 'ACTIVE',
         parent: { userId: user.id },
@@ -81,61 +55,27 @@ export default async function DashboardPage() {
       take: 10,
     }),
     // Blocked counts
-    prisma.longTermTask.count({
+    prisma.longRunningTask.count({
       where: { userId: user.id, state: 'BLOCKED' },
     }),
-    prisma.shortTermTask.count({
+    prisma.shortRunningTask.count({
       where: {
         state: 'BLOCKED',
         parent: { userId: user.id },
-      },
-    }),
-    prisma.routine.count({
-      where: {
-        state: 'BLOCKED',
-        OR: [
-          { section: { userId: user.id } },
-          { sectionId: null },
-        ],
       },
     }),
     // Completed counts
-    prisma.longTermTask.count({
+    prisma.longRunningTask.count({
       where: { userId: user.id, state: 'DONE' },
     }),
-    prisma.shortTermTask.count({
+    prisma.shortRunningTask.count({
       where: {
         state: 'DONE',
         parent: { userId: user.id },
       },
     }),
-    prisma.routine.count({
-      where: {
-        state: 'DONE',
-        OR: [
-          { section: { userId: user.id } },
-          { sectionId: null },
-        ],
-      },
-    }),
-    // Active routines
-    prisma.routine.findMany({
-      where: {
-        state: 'ACTIVE',
-        OR: [
-          { section: { userId: user.id } },
-          { sectionId: null },
-        ],
-      },
-      include: {
-        section: {
-          select: { id: true, name: true },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    }),
-    // Recently completed short-term tasks
-    prisma.shortTermTask.findMany({
+    // Recently completed short-running tasks
+    prisma.shortRunningTask.findMany({
       where: {
         state: 'DONE',
         parent: { userId: user.id },
@@ -148,41 +88,29 @@ export default async function DashboardPage() {
       orderBy: { updatedAt: 'desc' },
       take: 5,
     }),
-    // Recently completed routines
-    prisma.routine.findMany({
-      where: {
-        state: 'DONE',
-        OR: [
-          { section: { userId: user.id } },
-          { sectionId: null },
-        ],
-      },
-      orderBy: { updatedAt: 'desc' },
-      take: 5,
-    }),
   ])
 
   // Active tasks count (total, not just first 10)
-  const activeTasksCount = await prisma.shortTermTask.count({
+  const activeTasksCount = await prisma.shortRunningTask.count({
     where: {
       state: 'ACTIVE',
       parent: { userId: user.id },
     },
   })
 
-  const totalBlocked = blockedLongTerm + blockedShortTerm + blockedRoutines
-  const totalCompleted = completedLongTerm + completedShortTerm + completedRoutines
+  const totalBlocked = blockedLongTerm + blockedShortTerm
+  const totalCompleted = completedLongTerm + completedShortTerm
 
-  // Group active short-term tasks by parent project
+  // Group active short-running tasks by parent project
   const tasksByProject = new Map<
     string,
     {
       project: { id: string; title: string; emoji: string | null }
-      tasks: typeof activeShortTermTasks
+      tasks: typeof activeShortRunningTasks
     }
   >()
 
-  for (const task of activeShortTermTasks) {
+  for (const task of activeShortRunningTasks) {
     const existing = tasksByProject.get(task.parentId)
     if (existing) {
       existing.tasks.push(task)
@@ -194,33 +122,18 @@ export default async function DashboardPage() {
     }
   }
 
-  // Merge recently completed tasks and routines, sort by updatedAt, take top 5
-  const recentlyCompleted = [
-    ...recentlyCompletedShort.map((t) => ({
-      id: t.id,
-      title: t.title,
-      emoji: t.emoji,
-      priority: t.priority as Priority,
-      state: t.state as TaskState,
-      updatedAt: t.updatedAt,
-      kind: 'task' as const,
-      parentLabel: t.parent.emoji
-        ? `${t.parent.emoji} ${t.parent.title}`
-        : t.parent.title,
-    })),
-    ...recentlyCompletedRoutines.map((r) => ({
-      id: r.id,
-      title: r.title,
-      emoji: r.emoji,
-      priority: r.priority as Priority,
-      state: r.state as TaskState,
-      updatedAt: r.updatedAt,
-      kind: 'routine' as const,
-      parentLabel: null as string | null,
-    })),
-  ]
-    .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
-    .slice(0, 5)
+  // Recently completed tasks
+  const recentlyCompleted = recentlyCompletedShort.map((t) => ({
+    id: t.id,
+    title: t.title,
+    emoji: t.emoji,
+    priority: t.priority as Priority,
+    state: t.state as TaskState,
+    updatedAt: t.updatedAt,
+    parentLabel: t.parent.emoji
+      ? `${t.parent.emoji} ${t.parent.title}`
+      : t.parent.title,
+  }))
 
   return (
     <div className="space-y-8">
@@ -316,7 +229,7 @@ export default async function DashboardPage() {
                           emoji={task.emoji}
                           priority={task.priority as Priority}
                           state={task.state as TaskState}
-                          taskType="shortTerm"
+                          taskType="short"
                           variant="compact"
                         />
                       ))}
@@ -328,46 +241,6 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <EmptyState message="No active tasks. Create tasks within your projects." />
-        )}
-      </section>
-
-      {/* ── Active Routines Section ────────────────────────────────────── */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <RefreshCw className="h-5 w-5 text-muted-foreground" />
-            <h2 className="text-lg font-semibold">Active Routines</h2>
-          </div>
-          <Link
-            href="/routines"
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
-          >
-            View all
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
-        </div>
-
-        {activeRoutines.length > 0 ? (
-          <div className="grid gap-2">
-            {activeRoutines.map((routine) => (
-              <TaskCard
-                key={routine.id}
-                id={routine.id}
-                title={routine.title}
-                emoji={routine.emoji}
-                priority={routine.priority as Priority}
-                state={routine.state as TaskState}
-                taskType="routine"
-                intervalLabel={getIntervalLabel(
-                  routine.interval as Interval | null,
-                  routine.customInterval
-                )}
-                variant="compact"
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState message="No active routines." />
         )}
       </section>
 

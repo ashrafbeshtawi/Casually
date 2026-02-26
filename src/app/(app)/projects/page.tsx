@@ -3,7 +3,6 @@ import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { type Priority, type TaskState } from '@/types'
-import { ProjectCardLink } from '@/components/project-card-link'
 import { ProjectListFilters } from '@/components/project-list-filters'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { SortableProjectList } from '@/components/sortable-project-list'
@@ -34,19 +33,15 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
     where.priority = priorityFilter
   }
 
-  const tasks = await prisma.longTermTask.findMany({
+  const tasks = await prisma.longRunningTask.findMany({
     where,
     include: {
       _count: {
-        select: { shortTermTasks: true },
+        select: { children: true },
       },
     },
     orderBy: { order: 'asc' },
   })
-
-  // Separate One-Off Tasks to pin at top
-  const oneOffTask = tasks.find((t) => t.isOneOff)
-  const regularTasks = tasks.filter((t) => !t.isOneOff)
 
   return (
     <div className="space-y-6">
@@ -66,44 +61,25 @@ export default async function ProjectsPage({ searchParams }: ProjectsPageProps) 
         <ProjectListFilters />
       </Suspense>
 
-      {/* One-Off Tasks pinned at top */}
-      {oneOffTask && (
-        <div>
-          <ProjectCardLink
-            id={oneOffTask.id}
-            title={oneOffTask.title}
-            description={oneOffTask.description}
-            emoji={oneOffTask.emoji}
-            priority={oneOffTask.priority as Priority}
-            state={oneOffTask.state as TaskState}
-            isOneOff={true}
-            shortTermTaskCount={oneOffTask._count.shortTermTasks}
-          />
-        </div>
-      )}
-
-      {/* Regular projects */}
-      {regularTasks.length > 0 ? (
+      {/* Projects */}
+      {tasks.length > 0 ? (
         <SortableProjectList
-          projects={regularTasks.map((task) => ({
+          projects={tasks.map((task) => ({
             id: task.id,
             title: task.title,
             description: task.description,
             emoji: task.emoji,
             priority: task.priority as Priority,
             state: task.state as TaskState,
-            isOneOff: false,
-            shortTermTaskCount: task._count.shortTermTasks,
+            shortTermTaskCount: task._count.children,
           }))}
         />
       ) : (
-        !oneOffTask && (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
-            <p className="text-muted-foreground text-sm">
-              No projects yet. Create your first project to get started.
-            </p>
-          </div>
-        )
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+          <p className="text-muted-foreground text-sm">
+            No projects yet. Create your first project to get started.
+          </p>
+        </div>
       )}
     </div>
   )

@@ -25,14 +25,22 @@ export default async function ProjectDetailPage({
 
   const { id } = await params
 
-  const project = await prisma.longTermTask.findFirst({
+  const project = await prisma.longRunningTask.findFirst({
     where: {
       id,
       userId: user.id,
     },
     include: {
-      shortTermTasks: {
+      children: {
         orderBy: { order: 'asc' },
+        include: {
+          blockedBy: {
+            select: { id: true, title: true, emoji: true },
+          },
+        },
+      },
+      blockedBy: {
+        select: { id: true, title: true, emoji: true },
       },
     },
   })
@@ -40,11 +48,6 @@ export default async function ProjectDetailPage({
   if (!project) {
     notFound()
   }
-
-  const blockedBy = project.blockedBy as Array<{
-    type: string
-    taskId: string
-  }>
 
   return (
     <div className="space-y-6">
@@ -68,11 +71,6 @@ export default async function ProjectDetailPage({
               <h1 className="text-2xl font-bold tracking-tight truncate">
                 {project.title}
               </h1>
-              {project.isOneOff && (
-                <span className="text-primary text-xs font-medium">
-                  One-Off Tasks
-                </span>
-              )}
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -83,12 +81,12 @@ export default async function ProjectDetailPage({
             <StateChanger
               taskId={project.id}
               currentState={project.state as TaskState}
-              taskType="longTerm"
-              hasChildren={project.shortTermTasks.length > 0}
+              taskType="long"
+              hasChildren={project.children.length > 0}
             />
             <EditTaskDialog
               taskId={project.id}
-              taskType="longTerm"
+              taskType="long"
               defaultValues={{
                 title: project.title,
                 description: project.description,
@@ -96,15 +94,13 @@ export default async function ProjectDetailPage({
                 priority: project.priority as Priority,
               }}
             />
-            {!project.isOneOff && (
-              <DeleteTaskButton
-                taskId={project.id}
-                taskType="longTerm"
-                taskTitle={project.title}
-                hasChildren={project.shortTermTasks.length > 0}
-                redirectTo="/projects"
-              />
-            )}
+            <DeleteTaskButton
+              taskId={project.id}
+              taskType="long"
+              taskTitle={project.title}
+              hasChildren={project.children.length > 0}
+              redirectTo="/projects"
+            />
           </div>
         </div>
 
@@ -114,37 +110,36 @@ export default async function ProjectDetailPage({
           </p>
         )}
 
-        {blockedBy.length > 0 && (
+        {project.blockedBy && (
           <p className="text-muted-foreground text-xs">
-            Blocked by {blockedBy.length} task
-            {blockedBy.length !== 1 ? 's' : ''}
+            Blocked by: {project.blockedBy.emoji ? `${project.blockedBy.emoji} ` : ''}{project.blockedBy.title}
           </p>
         )}
       </div>
 
-      {/* Short-term tasks section */}
+      {/* Short-running tasks section */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">
-            Tasks ({project.shortTermTasks.length})
+            Tasks ({project.children.length})
           </h2>
           <CreateShortTermTaskDialog parentId={project.id} />
         </div>
 
-        {project.shortTermTasks.length > 0 ? (
+        {project.children.length > 0 ? (
           <SortableTaskList
             parentId={project.id}
-            tasks={project.shortTermTasks.map((task) => ({
+            tasks={project.children.map((task) => ({
               id: task.id,
               title: task.title,
               description: task.description,
               emoji: task.emoji,
               priority: task.priority as Priority,
               state: task.state as TaskState,
-              blockedBy: (task.blockedBy ?? []) as Array<{
-                type: string
-                taskId: string
-              }>,
+              blockedById: task.blockedById,
+              blockerName: task.blockedBy
+                ? (task.blockedBy.emoji ? `${task.blockedBy.emoji} ${task.blockedBy.title}` : task.blockedBy.title)
+                : null,
               parentId: project.id,
             }))}
           />
