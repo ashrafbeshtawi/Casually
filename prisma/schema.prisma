@@ -1,6 +1,3 @@
-// Prisma schema for Casually - Task Management App
-// Using Neon PostgreSQL (serverless) as the database
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -9,8 +6,6 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
-
-// ─── Enums ───────────────────────────────────────────────────────────────────
 
 enum Priority {
   HIGHEST
@@ -26,16 +21,6 @@ enum TaskState {
   BLOCKED
   DONE
 }
-
-enum Interval {
-  DAILY
-  WEEKLY
-  BIWEEKLY
-  MONTHLY
-  CUSTOM
-}
-
-// ─── NextAuth Models ─────────────────────────────────────────────────────────
 
 model Account {
   id                String  @id @default(cuid())
@@ -72,90 +57,56 @@ model VerificationToken {
   @@unique([identifier, token])
 }
 
-// ─── App Models ──────────────────────────────────────────────────────────────
-
 model User {
-  id              String           @id @default(cuid())
-  name            String?
-  email           String?          @unique
-  emailVerified   DateTime?
-  image           String?
-  accounts        Account[]
-  sessions        Session[]
-  longTermTasks   LongTermTask[]
-  routineSections RoutineSection[]
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
+  id               String            @id @default(cuid())
+  name             String?
+  email            String?           @unique
+  emailVerified    DateTime?
+  image            String?
+  accounts         Account[]
+  sessions         Session[]
+  longRunningTasks LongRunningTask[]
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
 }
 
-model LongTermTask {
+model LongRunningTask {
   id          String    @id @default(cuid())
   title       String
   description String?
   emoji       String?
-  priority    Priority
-  state       TaskState @default(ACTIVE)
-  isOneOff    Boolean   @default(false)
+  priority    Priority  @default(MEDIUM)
+  state       TaskState @default(WAITING)
   order       Int       @default(0)
 
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  blockedById String?
+  blockedBy   LongRunningTask?  @relation("LongBlocksLong", fields: [blockedById], references: [id])
+  blocking    LongRunningTask[] @relation("LongBlocksLong")
 
-  shortTermTasks ShortTermTask[]
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  blockedBy Json @default("[]")
+  children ShortRunningTask[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-model ShortTermTask {
+model ShortRunningTask {
   id          String    @id @default(cuid())
   title       String
   description String?
   emoji       String?
-  priority    Priority
+  priority    Priority  @default(MEDIUM)
   state       TaskState @default(WAITING)
   order       Int       @default(0)
 
   parentId String
-  parent   LongTermTask @relation(fields: [parentId], references: [id], onDelete: Cascade)
+  parent   LongRunningTask @relation(fields: [parentId], references: [id], onDelete: Cascade)
 
-  blockedBy Json @default("[]")
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model RoutineSection {
-  id    String @id @default(cuid())
-  name  String
-  order Int    @default(0)
-
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  routines Routine[]
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Routine {
-  id             String    @id @default(cuid())
-  title          String
-  description    String?
-  emoji          String?
-  priority       Priority
-  state          TaskState @default(ACTIVE)
-  interval       Interval?
-  customInterval String?
-  order          Int       @default(0)
-
-  sectionId String?
-  section   RoutineSection? @relation(fields: [sectionId], references: [id], onDelete: SetNull)
-
-  blockedBy Json @default("[]")
+  blockedById String?
+  blockedBy   ShortRunningTask? @relation("ShortBlocksShort", fields: [blockedById], references: [id])
+  blocking    ShortRunningTask[] @relation("ShortBlocksShort")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
