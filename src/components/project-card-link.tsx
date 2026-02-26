@@ -3,7 +3,6 @@
 import { useRouter } from 'next/navigation'
 import { TaskCard } from '@/components/task-card'
 import { type Priority, type TaskState } from '@/types'
-import { cn } from '@/lib/utils'
 
 interface ProjectCardLinkProps {
   id: string
@@ -12,7 +11,6 @@ interface ProjectCardLinkProps {
   emoji?: string | null
   priority: Priority
   state: TaskState
-  isOneOff: boolean
   shortTermTaskCount: number
 }
 
@@ -23,13 +21,12 @@ export function ProjectCardLink({
   emoji,
   priority,
   state,
-  isOneOff,
   shortTermTaskCount,
 }: ProjectCardLinkProps) {
   const router = useRouter()
 
   return (
-    <div className={cn(isOneOff && 'ring-primary/30 rounded-lg ring-2')}>
+    <div>
       <TaskCard
         id={id}
         title={title}
@@ -37,13 +34,10 @@ export function ProjectCardLink({
         emoji={emoji}
         priority={priority}
         state={state}
-        onClick={() => router.push(isOneOff ? '/one-off' : `/projects/${id}`)}
+        onClick={() => router.push(`/projects/${id}`)}
       />
       <div className="text-muted-foreground px-4 pb-2 text-xs">
         {shortTermTaskCount} task{shortTermTaskCount !== 1 ? 's' : ''}
-        {isOneOff && (
-          <span className="text-primary ml-2 font-medium">One-Off Tasks</span>
-        )}
       </div>
     </div>
   )

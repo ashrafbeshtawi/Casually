@@ -30,24 +30,17 @@ import { toast } from 'sonner'
 interface StateChangerProps {
   taskId: string
   currentState: TaskState
-  taskType: 'longTerm' | 'shortTerm' | 'routine'
+  taskType: 'long' | 'short'
   hasChildren?: boolean
   onStateChange?: (newState: TaskState) => void
   size?: 'default' | 'sm'
 }
 
 function getApiEndpoint(
-  taskType: 'longTerm' | 'shortTerm' | 'routine',
+  taskType: 'long' | 'short',
   taskId: string
 ): string {
-  switch (taskType) {
-    case 'longTerm':
-      return `/api/long-term-tasks/${taskId}/state`
-    case 'shortTerm':
-      return `/api/short-term-tasks/${taskId}/state`
-    case 'routine':
-      return `/api/routines/${taskId}/state`
-  }
+  return `/api/tasks/${taskType}/${taskId}/state`
 }
 
 export function StateChanger({
@@ -96,10 +89,10 @@ export function StateChanger({
   }
 
   function handleStateSelect(newState: TaskState) {
-    // If this is a LongTermTask with children and the new state is not ACTIVE,
+    // If this is a long-running task with children and the new state is not ACTIVE,
     // show a confirmation dialog since children will be blocked
     if (
-      taskType === 'longTerm' &&
+      taskType === 'long' &&
       hasChildren &&
       newState !== 'ACTIVE' &&
       currentState === 'ACTIVE'

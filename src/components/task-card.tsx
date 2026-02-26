@@ -1,12 +1,11 @@
 'use client'
 
 import { cn } from '@/lib/utils'
-import { type Priority, type TaskState, type Interval, PRIORITY_COLORS } from '@/types'
+import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { PriorityBadge } from '@/components/priority-badge'
 import { StateBadge } from '@/components/state-badge'
 import { StateChanger } from '@/components/state-changer'
 import { EditTaskDialog } from '@/components/edit-task-dialog'
-import { Badge } from '@/components/ui/badge'
 
 interface TaskCardProps {
   id: string
@@ -15,13 +14,9 @@ interface TaskCardProps {
   emoji?: string | null
   priority: Priority
   state: TaskState
-  blockedBy?: Array<{ type: string; taskId: string }>
-  blockerNames?: string[]
-  taskType?: 'longTerm' | 'shortTerm' | 'routine'
+  blockerName?: string | null
+  taskType?: 'long' | 'short'
   hasChildren?: boolean
-  intervalLabel?: string | null
-  interval?: Interval | null
-  customInterval?: string | null
   parentId?: string
   onClick?: () => void
   variant?: 'default' | 'compact'
@@ -35,12 +30,9 @@ export function TaskCard({
   emoji,
   priority,
   state,
-  blockerNames,
+  blockerName,
   taskType,
   hasChildren,
-  intervalLabel,
-  interval,
-  customInterval,
   parentId,
   onClick,
   variant = 'default',
@@ -77,11 +69,6 @@ export function TaskCard({
         <div className="flex items-center gap-1.5 min-w-0 flex-1">
           {emoji && <span className="shrink-0 text-base">{emoji}</span>}
           <span className="truncate text-sm font-medium">{title}</span>
-          {intervalLabel && (
-            <Badge variant="secondary" className="shrink-0 text-[10px] px-1.5 py-0">
-              {intervalLabel}
-            </Badge>
-          )}
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
           <PriorityBadge priority={priority} size="sm" />
@@ -103,8 +90,6 @@ export function TaskCard({
                   emoji,
                   priority,
                   parentId,
-                  interval,
-                  customInterval,
                 }}
               />
             </>
@@ -115,9 +100,9 @@ export function TaskCard({
       </div>
 
       {/* Blocked by info */}
-      {blockerNames && blockerNames.length > 0 && (
+      {blockerName && (
         <p className="text-muted-foreground mt-1 text-xs">
-          Blocked by: {blockerNames.join(', ')}
+          Blocked by: {blockerName}
         </p>
       )}
 

@@ -9,7 +9,7 @@ import { toast } from 'sonner'
 
 interface DeleteTaskButtonProps {
   taskId: string
-  taskType: 'longTerm' | 'shortTerm' | 'routine'
+  taskType: 'long' | 'short'
   taskTitle: string
   hasChildren?: boolean
   onDeleted?: () => void
@@ -18,16 +18,15 @@ interface DeleteTaskButtonProps {
 }
 
 const API_PATHS: Record<DeleteTaskButtonProps['taskType'], string> = {
-  longTerm: '/api/long-term-tasks',
-  shortTerm: '/api/short-term-tasks',
-  routine: '/api/routines',
+  long: '/api/tasks/long',
+  short: '/api/tasks/short',
 }
 
 function getConfirmMessage(
   taskType: DeleteTaskButtonProps['taskType'],
   hasChildren?: boolean
 ): { title: string; description: string } {
-  if (taskType === 'longTerm' && hasChildren) {
+  if (taskType === 'long' && hasChildren) {
     return {
       title: 'Delete project?',
       description:
@@ -35,19 +34,11 @@ function getConfirmMessage(
     }
   }
 
-  if (taskType === 'longTerm') {
+  if (taskType === 'long') {
     return {
       title: 'Delete project?',
       description:
         'Are you sure you want to delete this project? This action cannot be undone.',
-    }
-  }
-
-  if (taskType === 'routine') {
-    return {
-      title: 'Delete routine?',
-      description:
-        'Are you sure you want to delete this routine? This action cannot be undone.',
     }
   }
 

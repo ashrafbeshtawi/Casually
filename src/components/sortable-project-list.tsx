@@ -16,7 +16,6 @@ interface ProjectItem {
   emoji: string | null
   priority: Priority
   state: TaskState
-  isOneOff: boolean
   shortTermTaskCount: number
 }
 
@@ -32,7 +31,7 @@ export function SortableProjectList({ projects: initial }: SortableProjectListPr
     const previous = projects
     setProjects(reordered)
     try {
-      await reorderItems(reordered, '/api/long-term-tasks')
+      await reorderItems(reordered, '/api/tasks/long')
       router.refresh()
     } catch {
       setProjects(previous)
@@ -58,18 +57,15 @@ export function SortableProjectList({ projects: initial }: SortableProjectListPr
               emoji={project.emoji}
               priority={project.priority}
               state={project.state}
-              isOneOff={project.isOneOff}
               shortTermTaskCount={project.shortTermTaskCount}
             />
           </div>
-          {!project.isOneOff && (
-            <DeleteTaskButton
-              taskId={project.id}
-              taskType="longTerm"
-              taskTitle={project.title}
-              hasChildren={project.shortTermTaskCount > 0}
-            />
-          )}
+          <DeleteTaskButton
+            taskId={project.id}
+            taskType="long"
+            taskTitle={project.title}
+            hasChildren={project.shortTermTaskCount > 0}
+          />
         </div>
       )}
     />

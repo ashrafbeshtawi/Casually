@@ -22,7 +22,7 @@ export function CreateProjectDialog() {
   async function handleSubmit(data: TaskFormData) {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/long-term-tasks', {
+      const res = await fetch('/api/tasks/long', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -30,6 +30,7 @@ export function CreateProjectDialog() {
           description: data.description || null,
           emoji: data.emoji || null,
           priority: data.priority,
+          state: data.state || 'WAITING',
         }),
       })
 
@@ -64,7 +65,7 @@ export function CreateProjectDialog() {
         </DialogHeader>
         <TaskForm
           mode="create"
-          taskType="longTerm"
+          taskType="long"
           onSubmit={handleSubmit}
           onCancel={() => setOpen(false)}
           isLoading={isLoading}

@@ -28,7 +28,7 @@ export function CreateShortTermTaskDialog({
   async function handleSubmit(data: TaskFormData) {
     setIsLoading(true)
     try {
-      const res = await fetch('/api/short-term-tasks', {
+      const res = await fetch('/api/tasks/short', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -71,7 +71,7 @@ export function CreateShortTermTaskDialog({
         </DialogHeader>
         <TaskForm
           mode="create"
-          taskType="shortTerm"
+          taskType="short"
           onSubmit={handleSubmit}
           onCancel={() => setOpen(false)}
           isLoading={isLoading}

@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button'
 import { ArrowRightLeft, Loader2, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
-import { type LongTermTask, type Priority, PRIORITY_COLORS } from '@/types'
+import { type LongRunningTask, type Priority, PRIORITY_COLORS } from '@/types'
 
 interface MoveTaskButtonProps {
   taskId: string
@@ -26,7 +26,7 @@ export function MoveTaskButton({
   currentParentId,
 }: MoveTaskButtonProps) {
   const [open, setOpen] = useState(false)
-  const [projects, setProjects] = useState<LongTermTask[]>([])
+  const [projects, setProjects] = useState<LongRunningTask[]>([])
   const [isLoadingProjects, setIsLoadingProjects] = useState(false)
   const [isMoving, setIsMoving] = useState(false)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -36,9 +36,9 @@ export function MoveTaskButton({
     if (open) {
       setSelectedId(null)
       setIsLoadingProjects(true)
-      fetch('/api/long-term-tasks')
+      fetch('/api/tasks/long')
         .then((res) => res.json())
-        .then((data: LongTermTask[]) => {
+        .then((data: LongRunningTask[]) => {
           setProjects(data)
         })
         .catch(() => {
@@ -55,7 +55,7 @@ export function MoveTaskButton({
 
     setIsMoving(true)
     try {
-      const res = await fetch(`/api/short-term-tasks/${taskId}/move`, {
+      const res = await fetch(`/api/tasks/short/${taskId}/move`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ newParentId: selectedId }),
@@ -134,11 +134,6 @@ export function MoveTaskButton({
                     <span className="truncate font-medium">
                       {project.title}
                     </span>
-                    {project.isOneOff && (
-                      <span className="text-muted-foreground shrink-0 text-xs">
-                        (One-Off)
-                      </span>
-                    )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     <span

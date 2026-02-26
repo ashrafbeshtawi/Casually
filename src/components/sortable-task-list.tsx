@@ -17,7 +17,8 @@ interface TaskItem {
   emoji: string | null
   priority: Priority
   state: TaskState
-  blockedBy: Array<{ type: string; taskId: string }>
+  blockedById: string | null
+  blockerName?: string | null
   parentId: string
 }
 
@@ -34,7 +35,7 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
     const previous = tasks
     setTasks(reordered)
     try {
-      await reorderItems(reordered, '/api/short-term-tasks')
+      await reorderItems(reordered, '/api/tasks/short')
       router.refresh()
     } catch {
       setTasks(previous)
@@ -60,8 +61,8 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
               emoji={task.emoji}
               priority={task.priority}
               state={task.state}
-              blockedBy={task.blockedBy}
-              taskType="shortTerm"
+              blockerName={task.blockerName}
+              taskType="short"
               parentId={task.parentId}
               variant="compact"
             />
@@ -72,7 +73,7 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
           />
           <DeleteTaskButton
             taskId={task.id}
-            taskType="shortTerm"
+            taskType="short"
             taskTitle={task.title}
           />
         </div>

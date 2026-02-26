@@ -13,28 +13,25 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TaskForm, type TaskFormData } from '@/components/task-form'
-import type { Priority, Interval } from '@/types'
+import type { Priority } from '@/types'
 
 interface EditTaskDialogProps {
   taskId: string
-  taskType: 'longTerm' | 'shortTerm' | 'routine'
+  taskType: 'long' | 'short'
   defaultValues: {
     title: string
     description?: string | null
     emoji?: string | null
     priority: Priority
     parentId?: string
-    interval?: Interval | null
-    customInterval?: string | null
   }
   parents?: Array<{ id: string; title: string }>
   trigger?: React.ReactNode
 }
 
 const API_BASE: Record<string, string> = {
-  longTerm: '/api/long-term-tasks',
-  shortTerm: '/api/short-term-tasks',
-  routine: '/api/routines',
+  long: '/api/tasks/long',
+  short: '/api/tasks/short',
 }
 
 export function EditTaskDialog({
@@ -56,11 +53,6 @@ export function EditTaskDialog({
         description: data.description || null,
         emoji: data.emoji || null,
         priority: data.priority,
-      }
-
-      if (taskType === 'routine') {
-        body.interval = data.interval || null
-        body.customInterval = data.customInterval || null
       }
 
       const res = await fetch(`${API_BASE[taskType]}/${taskId}`, {
@@ -95,7 +87,7 @@ export function EditTaskDialog({
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Edit {taskType === 'longTerm' ? 'Project' : taskType === 'routine' ? 'Routine' : 'Task'}</DialogTitle>
+          <DialogTitle>Edit {taskType === 'long' ? 'Project' : 'Task'}</DialogTitle>
         </DialogHeader>
         <TaskForm
           mode="edit"
@@ -106,8 +98,6 @@ export function EditTaskDialog({
             emoji: defaultValues.emoji ?? undefined,
             priority: defaultValues.priority,
             parentId: defaultValues.parentId,
-            interval: (defaultValues.interval as Interval) ?? undefined,
-            customInterval: defaultValues.customInterval ?? undefined,
           }}
           parents={parents}
           onSubmit={handleSubmit}

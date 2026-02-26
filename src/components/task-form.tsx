@@ -15,9 +15,10 @@ import {
 import { EmojiPicker } from '@/components/emoji-picker'
 import {
   type Priority,
-  type Interval,
+  type TaskState,
   PRIORITY_COLORS,
   PRIORITY_LABELS,
+  STATE_LABELS,
 } from '@/types'
 
 export interface TaskFormData {
@@ -26,21 +27,18 @@ export interface TaskFormData {
   emoji: string
   priority: Priority
   parentId?: string
-  interval?: Interval
-  customInterval?: string
+  state?: TaskState
 }
 
 interface TaskFormProps {
   mode: 'create' | 'edit'
-  taskType: 'longTerm' | 'shortTerm' | 'routine'
+  taskType: 'long' | 'short'
   defaultValues?: {
     title?: string
     description?: string
     emoji?: string
     priority?: Priority
     parentId?: string
-    interval?: Interval
-    customInterval?: string
   }
   parents?: Array<{ id: string; title: string }>
   onSubmit: (data: TaskFormData) => void
@@ -49,14 +47,7 @@ interface TaskFormProps {
 }
 
 const PRIORITIES: Priority[] = ['HIGHEST', 'HIGH', 'MEDIUM', 'LOW', 'LOWEST']
-
-const INTERVALS: { value: Interval; label: string }[] = [
-  { value: 'DAILY', label: 'Daily' },
-  { value: 'WEEKLY', label: 'Weekly' },
-  { value: 'BIWEEKLY', label: 'Biweekly' },
-  { value: 'MONTHLY', label: 'Monthly' },
-  { value: 'CUSTOM', label: 'Custom' },
-]
+const STATES: TaskState[] = ['ACTIVE', 'WAITING', 'BLOCKED', 'DONE']
 
 export function TaskForm({
   mode,
@@ -76,12 +67,7 @@ export function TaskForm({
     defaultValues?.priority ?? 'MEDIUM'
   )
   const [parentId, setParentId] = useState(defaultValues?.parentId ?? '')
-  const [interval, setInterval] = useState<Interval | ''>(
-    defaultValues?.interval ?? ''
-  )
-  const [customInterval, setCustomInterval] = useState(
-    defaultValues?.customInterval ?? ''
-  )
+  const [state, setState] = useState<TaskState>('WAITING')
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -94,15 +80,12 @@ export function TaskForm({
       priority,
     }
 
-    if (taskType === 'shortTerm' && parentId) {
+    if (taskType === 'short' && parentId) {
       data.parentId = parentId
     }
 
-    if (taskType === 'routine' && interval) {
-      data.interval = interval as Interval
-      if (interval === 'CUSTOM' && customInterval.trim()) {
-        data.customInterval = customInterval.trim()
-      }
+    if (taskType === 'long' && mode === 'create') {
+      data.state = state
     }
 
     onSubmit(data)
@@ -172,8 +155,8 @@ export function TaskForm({
         </Select>
       </div>
 
-      {/* Parent selector (short-term tasks only) */}
-      {taskType === 'shortTerm' && parents && parents.length > 0 && (
+      {/* Parent selector (short tasks only) */}
+      {taskType === 'short' && parents && parents.length > 0 && (
         <div className="space-y-2">
           <Label htmlFor="parent">Parent Task</Label>
           <Select value={parentId} onValueChange={setParentId}>
@@ -191,38 +174,25 @@ export function TaskForm({
         </div>
       )}
 
-      {/* Interval selector (routines only) */}
-      {taskType === 'routine' && (
+      {/* State selector (long tasks, create mode only) */}
+      {taskType === 'long' && mode === 'create' && (
         <div className="space-y-2">
-          <Label htmlFor="interval">Interval</Label>
+          <Label htmlFor="state">Initial State</Label>
           <Select
-            value={interval}
-            onValueChange={(value) => setInterval(value as Interval)}
+            value={state}
+            onValueChange={(value) => setState(value as TaskState)}
           >
-            <SelectTrigger id="interval" className="w-full">
-              <SelectValue placeholder="Select interval" />
+            <SelectTrigger id="state" className="w-full">
+              <SelectValue placeholder="Select state" />
             </SelectTrigger>
             <SelectContent>
-              {INTERVALS.map((i) => (
-                <SelectItem key={i.value} value={i.value}>
-                  {i.label}
+              {STATES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {STATE_LABELS[s]}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-        </div>
-      )}
-
-      {/* Custom interval (only when interval=CUSTOM) */}
-      {taskType === 'routine' && interval === 'CUSTOM' && (
-        <div className="space-y-2">
-          <Label htmlFor="customInterval">Custom Interval</Label>
-          <Input
-            id="customInterval"
-            placeholder='e.g. "Every 3 days"'
-            value={customInterval}
-            onChange={(e) => setCustomInterval(e.target.value)}
-          />
         </div>
       )}
 
