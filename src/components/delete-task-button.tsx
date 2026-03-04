@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/confirm-dialog'
+import { cn } from '@/lib/utils'
 import { Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -15,6 +16,7 @@ interface DeleteTaskButtonProps {
   onDeleted?: () => void
   redirectTo?: string
   size?: 'default' | 'sm' | 'icon'
+  showLabel?: boolean
 }
 
 const API_PATHS: Record<DeleteTaskButtonProps['taskType'], string> = {
@@ -57,6 +59,7 @@ export function DeleteTaskButton({
   onDeleted,
   redirectTo,
   size = 'icon',
+  showLabel,
 }: DeleteTaskButtonProps) {
   const [showConfirm, setShowConfirm] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -92,21 +95,25 @@ export function DeleteTaskButton({
     }
   }
 
-  const buttonSize = size === 'icon' ? 'icon-xs' as const : size
+  const buttonSize = showLabel ? 'xs' as const : size === 'icon' ? 'icon-xs' as const : size
 
   return (
     <>
       <Button
         variant="ghost"
         size={buttonSize}
-        className="text-muted-foreground hover:text-destructive"
+        className={cn(
+          'text-rose-500 hover:text-rose-600 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950',
+          showLabel && 'gap-1 px-1.5'
+        )}
         onClick={(e) => {
           e.stopPropagation()
           setShowConfirm(true)
         }}
         title={`Delete ${taskTitle}`}
       >
-        <Trash2 className="h-3 w-3" />
+        <Trash2 className="h-3.5 w-3.5" />
+        {showLabel && <span className="text-xs font-medium">Delete</span>}
       </Button>
 
       <ConfirmDialog

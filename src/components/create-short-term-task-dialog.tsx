@@ -16,10 +16,14 @@ import { toast } from 'sonner'
 
 interface CreateShortTermTaskDialogProps {
   parentId: string
+  onCreated?: () => void
+  variant?: 'default' | 'icon' | 'compact'
 }
 
 export function CreateShortTermTaskDialog({
   parentId,
+  onCreated,
+  variant = 'default',
 }: CreateShortTermTaskDialogProps) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -46,6 +50,7 @@ export function CreateShortTermTaskDialog({
       }
 
       setOpen(false)
+      onCreated?.()
       router.refresh()
       toast.success('Task created')
     } catch (error) {
@@ -60,10 +65,33 @@ export function CreateShortTermTaskDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button size="sm">
-          <Plus className="mr-2 h-4 w-4" />
-          Add Task
-        </Button>
+        {variant === 'icon' ? (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:text-emerald-300 dark:hover:bg-emerald-950"
+            onClick={(e) => e.stopPropagation()}
+            title="Add task"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+        ) : variant === 'compact' ? (
+          <Button
+            variant="ghost"
+            size="xs"
+            className="gap-1 px-1.5 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:text-emerald-400 dark:hover:text-emerald-300 dark:hover:bg-emerald-950"
+            onClick={(e) => e.stopPropagation()}
+            title="Add task"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Add</span>
+          </Button>
+        ) : (
+          <Button size="sm">
+            <Plus className="mr-2 h-4 w-4" />
+            Add Task
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

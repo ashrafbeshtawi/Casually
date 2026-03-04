@@ -2,10 +2,9 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SortableList, DragHandle, type DragHandleProps } from '@/components/sortable-list'
+import { SortableList, DragHandle } from '@/components/sortable-list'
 import { TaskCard } from '@/components/task-card'
 import { MoveTaskButton } from '@/components/move-task-button'
-import { DeleteTaskButton } from '@/components/delete-task-button'
 import { reorderItems } from '@/lib/reorder'
 import { type Priority, type TaskState } from '@/types'
 import { toast } from 'sonner'
@@ -64,17 +63,13 @@ export function SortableTaskList({ tasks: initial, parentId }: SortableTaskListP
               blockerName={task.blockerName}
               taskType="short"
               parentId={task.parentId}
+              showDelete
               variant="compact"
             />
           </div>
           <MoveTaskButton
             taskId={task.id}
             currentParentId={parentId}
-          />
-          <DeleteTaskButton
-            taskId={task.id}
-            taskType="short"
-            taskTitle={task.title}
           />
         </div>
       )}

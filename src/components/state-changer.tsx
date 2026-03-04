@@ -132,6 +132,7 @@ export function StateChanger({
             size={size === 'sm' ? 'xs' : 'sm'}
             className="gap-1 px-1.5"
             disabled={isLoading}
+            onClick={(e) => e.stopPropagation()}
           >
             {isLoading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -151,7 +152,10 @@ export function StateChanger({
           {validNextStates.map((state) => (
             <DropdownMenuItem
               key={state}
-              onClick={() => handleStateSelect(state)}
+              onClick={(e) => {
+                e.stopPropagation()
+                handleStateSelect(state)
+              }}
             >
               <StateBadge state={state} />
               <span className="ml-1 text-xs">{STATE_LABELS[state]}</span>

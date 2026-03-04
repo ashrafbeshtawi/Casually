@@ -116,7 +116,7 @@ export function SortableList<T>({
         items={items.map(getItemId)}
         strategy={verticalListSortingStrategy}
       >
-        <div className="grid gap-2">
+        <div className="grid gap-3">
           {items.map((item) => (
             <SortableItem key={getItemId(item)} id={getItemId(item)}>
               {(dragHandleProps) => renderItem(item, dragHandleProps)}

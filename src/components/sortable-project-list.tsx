@@ -2,9 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { SortableList, DragHandle, type DragHandleProps } from '@/components/sortable-list'
+import { SortableList, DragHandle } from '@/components/sortable-list'
 import { ProjectCardLink } from '@/components/project-card-link'
-import { DeleteTaskButton } from '@/components/delete-task-button'
 import { reorderItems } from '@/lib/reorder'
 import { type Priority, type TaskState } from '@/types'
 import { toast } from 'sonner'
@@ -60,12 +59,6 @@ export function SortableProjectList({ projects: initial }: SortableProjectListPr
               shortTermTaskCount={project.shortTermTaskCount}
             />
           </div>
-          <DeleteTaskButton
-            taskId={project.id}
-            taskType="long"
-            taskTitle={project.title}
-            hasChildren={project.shortTermTaskCount > 0}
-          />
         </div>
       )}
     />

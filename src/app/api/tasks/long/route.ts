@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
 
   const tasks = await prisma.longRunningTask.findMany({
     where,
-    include: { _count: { select: { children: true } } },
+    include: {
+      _count: { select: { children: true } },
+      blockedBy: { select: { id: true, title: true, emoji: true } },
+    },
     orderBy: { order: "asc" },
   })
 

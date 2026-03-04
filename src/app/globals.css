@@ -124,3 +124,15 @@
     @apply bg-background text-foreground;
   }
 }
+
+.collapsible-content {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 200ms ease-out;
+}
+.collapsible-content[data-state='open'] {
+  grid-template-rows: 1fr;
+}
+.collapsible-content > div {
+  overflow: hidden;
+}

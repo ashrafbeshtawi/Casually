@@ -3,7 +3,7 @@
 import { usePathname } from 'next/navigation'
 import { useSession, signOut } from 'next-auth/react'
 import Link from 'next/link'
-import { Menu, LogOut, LogIn } from 'lucide-react'
+import { Menu, LogOut, LogIn, Sun, Moon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import {
@@ -13,10 +13,10 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAppStore } from '@/store'
+import { useTheme } from '@/hooks/use-theme'
 
 const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
-  '/projects': 'Projects',
   '/one-off': 'One-Off Tasks',
   '/routines': 'Routines',
   '/blocked': 'Blocked',
@@ -43,6 +43,7 @@ export function Header() {
   const pathname = usePathname()
   const { data: session } = useSession()
   const { setSidebarOpen } = useAppStore()
+  const { theme, toggle: toggleTheme } = useTheme()
 
   const pageTitle = getPageTitle(pathname)
   const user = session?.user
@@ -63,6 +64,18 @@ export function Header() {
       </div>
 
       <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={toggleTheme}
+          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          {theme === 'dark' ? (
+            <Moon className="h-4 w-4 text-indigo-400" />
+          ) : (
+            <Sun className="h-4 w-4 text-amber-500" />
+          )}
+        </Button>
         {user ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
-  FolderKanban,
   Zap,
   RefreshCw,
   Ban,
@@ -16,7 +15,6 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 
 const navItems = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'One-Off Tasks', href: '/one-off', icon: Zap },
   { label: 'Routines', href: '/routines', icon: RefreshCw },
   { label: 'Blocked', href: '/blocked', icon: Ban },

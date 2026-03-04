@@ -29,12 +29,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: `Invalid state: ${newState}` }, { status: 400 })
   }
 
+  const PROTECTED_TITLES = ["One-Off Tasks", "Routines"]
+
   const task = await prisma.longRunningTask.findFirst({
     where: { id, userId: session.user.id },
   })
 
   if (!task) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  if (PROTECTED_TITLES.includes(task.title)) {
+    return NextResponse.json(
+      { error: "Cannot change state of this task" },
+      { status: 403 }
+    )
   }
 
   if (!isValidTransition(task.state as TaskState, newState as TaskState)) {

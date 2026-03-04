@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Pencil } from 'lucide-react'
+import { SquarePen } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -27,6 +27,8 @@ interface EditTaskDialogProps {
   }
   parents?: Array<{ id: string; title: string }>
   trigger?: React.ReactNode
+  showLabel?: boolean
+  onEdited?: () => void
 }
 
 const API_BASE: Record<string, string> = {
@@ -40,6 +42,8 @@ export function EditTaskDialog({
   defaultValues,
   parents,
   trigger,
+  showLabel,
+  onEdited,
 }: EditTaskDialogProps) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -68,6 +72,7 @@ export function EditTaskDialog({
 
       toast.success('Updated successfully')
       setOpen(false)
+      onEdited?.()
       router.refresh()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to update')
@@ -80,9 +85,28 @@ export function EditTaskDialog({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         {trigger ?? (
-          <Button variant="ghost" size="icon" className="h-7 w-7">
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
+          showLabel ? (
+            <Button
+              variant="ghost"
+              size="xs"
+              className="gap-1 px-1.5 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950"
+              onClick={(e) => e.stopPropagation()}
+              title="Edit"
+            >
+              <SquarePen className="h-3.5 w-3.5" />
+              <span className="text-xs font-medium">Edit</span>
+            </Button>
+          ) : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-950"
+              onClick={(e) => e.stopPropagation()}
+              title="Edit"
+            >
+              <SquarePen className="h-3.5 w-3.5" />
+            </Button>
+          )
         )}
       </DialogTrigger>
       <DialogContent>

@@ -19,11 +19,13 @@ import { type LongRunningTask, type Priority, PRIORITY_COLORS } from '@/types'
 interface MoveTaskButtonProps {
   taskId: string
   currentParentId: string
+  onMoved?: () => void
 }
 
 export function MoveTaskButton({
   taskId,
   currentParentId,
+  onMoved,
 }: MoveTaskButtonProps) {
   const [open, setOpen] = useState(false)
   const [projects, setProjects] = useState<LongRunningTask[]>([])
@@ -67,8 +69,9 @@ export function MoveTaskButton({
       }
 
       setOpen(false)
-      router.refresh()
       toast.success('Task moved')
+      onMoved?.()
+      router.refresh()
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to move task'

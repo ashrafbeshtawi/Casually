@@ -14,7 +14,11 @@ import { TaskForm, type TaskFormData } from '@/components/task-form'
 import { Plus } from 'lucide-react'
 import { toast } from 'sonner'
 
-export function CreateProjectDialog() {
+interface CreateProjectDialogProps {
+  onCreated?: () => void
+}
+
+export function CreateProjectDialog({ onCreated }: CreateProjectDialogProps = {}) {
   const [open, setOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
@@ -40,6 +44,7 @@ export function CreateProjectDialog() {
       }
 
       setOpen(false)
+      onCreated?.()
       router.refresh()
       toast.success('Project created')
     } catch (error) {

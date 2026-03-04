@@ -74,12 +74,21 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params
+  const PROTECTED_TITLES = ["One-Off Tasks", "Routines"]
+
   const existing = await prisma.longRunningTask.findFirst({
     where: { id, userId: session.user.id },
   })
 
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
+  }
+
+  if (PROTECTED_TITLES.includes(existing.title)) {
+    return NextResponse.json(
+      { error: "Cannot delete this task" },
+      { status: 403 }
+    )
   }
 
   // Clear blockedById references pointing to this task

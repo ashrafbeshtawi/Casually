@@ -23,7 +23,10 @@ export async function GET(request: NextRequest) {
 
   const tasks = await prisma.shortRunningTask.findMany({
     where,
-    include: { parent: { select: { id: true, title: true, emoji: true } } },
+    include: {
+      parent: { select: { id: true, title: true, emoji: true } },
+      blockedBy: { select: { id: true, title: true, emoji: true } },
+    },
     orderBy: { order: "asc" },
   })
 
