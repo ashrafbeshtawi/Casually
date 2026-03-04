@@ -82,6 +82,7 @@ fun ProjectDetailScreen(
                                 )
                                 Spacer(Modifier.height(8.dp))
                             }
+                            val isProtected = project.title in listOf("One-Off Tasks", "Routines")
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 StateBadge(project.state)
                                 Spacer(Modifier.width(8.dp))
@@ -89,8 +90,10 @@ fun ProjectDetailScreen(
                                 Spacer(Modifier.width(4.dp))
                                 Text(project.priority.label, style = MaterialTheme.typography.labelSmall)
                                 Spacer(Modifier.weight(1f))
-                                OutlinedButton(onClick = { showStateDialog = true }) {
-                                    Text("Change State")
+                                if (!isProtected) {
+                                    OutlinedButton(onClick = { showStateDialog = true }) {
+                                        Text("Change State")
+                                    }
                                 }
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))

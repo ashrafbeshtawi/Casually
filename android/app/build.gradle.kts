@@ -19,7 +19,9 @@ android {
 
         // Set your backend URL here
         buildConfigField("String", "API_BASE_URL", "\"https://casually-two.vercel.app\"")
-        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"958956296630-n2ufck7aj8eim8grik3unekg9c0lsinv.apps.googleusercontent.com\"")
+        // Web client ID — required by One-Tap API for setServerClientId
+        // (must match backend GOOGLE_CLIENT_ID so token audience is verified correctly)
+        buildConfigField("String", "GOOGLE_CLIENT_ID", "\"958956296630-d9034dppssoab4tk06rrlnv0ie2tfb5p.apps.googleusercontent.com\"")
     }
 
     buildFeatures {

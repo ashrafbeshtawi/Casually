@@ -23,6 +23,14 @@ class LoginViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(LoginUiState(isLoggedIn = authRepository.isLoggedIn))
     val uiState = _uiState.asStateFlow()
 
+    fun onSignInLoading() {
+        _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+    }
+
+    fun onSignInError(message: String) {
+        _uiState.value = _uiState.value.copy(isLoading = false, error = message)
+    }
+
     fun onGoogleIdToken(idToken: String) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)

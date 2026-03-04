@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Collapsible as CollapsiblePrimitive } from 'radix-ui'
 import { ChevronRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
+import { type Priority, type TaskState, PRIORITY_COLORS, STATE_LABELS } from '@/types'
 import { ProgressBar } from '@/components/progress-bar'
 import { PriorityChanger } from '@/components/priority-changer'
 import { StateChanger } from '@/components/state-changer'
@@ -44,6 +44,7 @@ interface CollapsibleProjectCardProps {
   onActionComplete: () => void
   dragHandleProps: DragHandleProps
   refreshKey?: number
+  taskStateFilter?: string
 }
 
 export function CollapsibleProjectCard({
@@ -60,6 +61,7 @@ export function CollapsibleProjectCard({
   onActionComplete,
   dragHandleProps,
   refreshKey,
+  taskStateFilter = 'ACTIVE',
 }: CollapsibleProjectCardProps) {
   const isProtected = PROTECTED_TITLES.includes(title)
   const borderColor = PRIORITY_COLORS[priority]
@@ -118,6 +120,11 @@ export function CollapsibleProjectCard({
   }
 
   const doneCount = children.filter((t) => t.state === 'DONE').length
+  const filteredChildren =
+    taskStateFilter === 'ALL'
+      ? children
+      : children.filter((t) => t.state === taskStateFilter)
+  const isFiltered = taskStateFilter !== 'ALL'
 
   return (
     <CollapsiblePrimitive.Root open={!isCollapsed} onOpenChange={handleToggle}>
@@ -229,7 +236,7 @@ export function CollapsibleProjectCard({
               {/* Tasks header */}
               <div className="mb-1.5">
                 <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                  Tasks ({children.length})
+                  Tasks {isFiltered ? `(${filteredChildren.length} of ${children.length})` : `(${children.length})`}
                 </h3>
               </div>
 
@@ -238,47 +245,79 @@ export function CollapsibleProjectCard({
                 <div className="flex items-center justify-center py-4">
                   <Loader2 className="text-muted-foreground h-4 w-4 animate-spin" />
                 </div>
-              ) : children.length > 0 ? (
-                <SortableList
-                  items={children}
-                  getItemId={(t) => t.id}
-                  onReorder={handleReorderChildren}
-                  id={`tasks-${id}`}
-                  renderItem={(task, taskDragHandleProps) => {
-                    const blockerName = task.blockedBy
-                      ? task.blockedBy.emoji
-                        ? `${task.blockedBy.emoji} ${task.blockedBy.title}`
-                        : task.blockedBy.title
-                      : null
+              ) : filteredChildren.length > 0 ? (
+                isFiltered ? (
+                  <div className="space-y-0.5">
+                    {filteredChildren.map((task) => {
+                      const blockerName = task.blockedBy
+                        ? task.blockedBy.emoji
+                          ? `${task.blockedBy.emoji} ${task.blockedBy.title}`
+                          : task.blockedBy.title
+                        : null
+                      return (
+                        <TaskCard
+                          key={task.id}
+                          id={task.id}
+                          title={task.title}
+                          description={task.description}
+                          emoji={task.emoji}
+                          priority={task.priority}
+                          state={task.state}
+                          blockerName={blockerName}
+                          taskType="short"
+                          parentId={id}
+                          showDelete
+                          showMove
+                          onActionComplete={handleChildActionComplete}
+                          variant="compact"
+                        />
+                      )
+                    })}
+                  </div>
+                ) : (
+                  <SortableList
+                    items={filteredChildren}
+                    getItemId={(t) => t.id}
+                    onReorder={handleReorderChildren}
+                    id={`tasks-${id}`}
+                    renderItem={(task, taskDragHandleProps) => {
+                      const blockerName = task.blockedBy
+                        ? task.blockedBy.emoji
+                          ? `${task.blockedBy.emoji} ${task.blockedBy.title}`
+                          : task.blockedBy.title
+                        : null
 
-                    return (
-                      <div className="flex items-center gap-0.5">
-                        <DragHandle {...taskDragHandleProps} />
-                        <div className="min-w-0 flex-1">
-                          <TaskCard
-                            id={task.id}
-                            title={task.title}
-                            description={task.description}
-                            emoji={task.emoji}
-                            priority={task.priority}
-                            state={task.state}
-                            blockerName={blockerName}
-                            taskType="short"
-                            parentId={id}
-                            showDelete
-                            showMove
-                            onActionComplete={handleChildActionComplete}
-                            variant="compact"
-                          />
+                      return (
+                        <div className="flex items-center gap-0.5">
+                          <DragHandle {...taskDragHandleProps} />
+                          <div className="min-w-0 flex-1">
+                            <TaskCard
+                              id={task.id}
+                              title={task.title}
+                              description={task.description}
+                              emoji={task.emoji}
+                              priority={task.priority}
+                              state={task.state}
+                              blockerName={blockerName}
+                              taskType="short"
+                              parentId={id}
+                              showDelete
+                              showMove
+                              onActionComplete={handleChildActionComplete}
+                              variant="compact"
+                            />
+                          </div>
                         </div>
-                      </div>
-                    )
-                  }}
-                />
+                      )
+                    }}
+                  />
+                )
               ) : (
                 <div className="flex items-center justify-center rounded-md border border-dashed py-4">
                   <p className="text-muted-foreground text-xs">
-                    No tasks yet. Add your first task.
+                    {children.length === 0
+                      ? 'No tasks yet. Add your first task.'
+                      : `No ${STATE_LABELS[taskStateFilter as TaskState].toLowerCase()} tasks`}
                   </p>
                 </div>
               )}

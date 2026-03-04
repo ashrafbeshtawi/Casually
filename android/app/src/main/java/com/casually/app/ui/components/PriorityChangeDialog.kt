@@ -9,50 +9,45 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.casually.app.domain.model.TaskState
-import com.casually.app.ui.theme.CasuallyPurple
+import com.casually.app.domain.model.Priority
 
 @Composable
-fun StateChangeDialog(
-    currentState: TaskState,
-    isProject: Boolean,
+fun PriorityChangeDialog(
+    currentPriority: Priority,
     onDismiss: () -> Unit,
-    onConfirm: (TaskState) -> Unit,
+    onConfirm: (Priority) -> Unit,
 ) {
-    val validStates = TaskState.validTransitions(currentState)
-    var selected by remember { mutableStateOf(validStates.firstOrNull()) }
+    var selected by remember { mutableStateOf(currentPriority) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Change State") },
+        title = { Text("Change Priority") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (isProject) {
-                    Text(
-                        "This will change all child tasks to the same state.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                validStates.forEach { state ->
-                    val isSelected = state == selected
+                Priority.entries.forEach { priority ->
+                    val isSelected = priority == selected
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clickable { selected = state },
+                            .clickable { selected = priority },
                         shape = RoundedCornerShape(12.dp),
                         border = BorderStroke(
                             width = if (isSelected) 2.dp else 1.dp,
-                            color = if (isSelected) CasuallyPurple else MaterialTheme.colorScheme.outlineVariant,
+                            color = if (isSelected) priority.color else MaterialTheme.colorScheme.outlineVariant,
                         ),
-                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                        color = if (isSelected) priority.color.copy(alpha = 0.1f)
                             else MaterialTheme.colorScheme.surface,
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            StateBadge(state)
+                            PriorityDot(priority, size = PriorityDotSize.Large)
+                            Spacer(Modifier.width(12.dp))
+                            Text(
+                                priority.label,
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
                 }
@@ -60,8 +55,8 @@ fun StateChangeDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { selected?.let { onConfirm(it) } },
-                enabled = selected != null,
+                onClick = { onConfirm(selected) },
+                enabled = selected != currentPriority,
             ) { Text("Confirm") }
         },
         dismissButton = {

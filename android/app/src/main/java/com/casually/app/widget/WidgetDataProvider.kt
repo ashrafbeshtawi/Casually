@@ -13,6 +13,8 @@ data class WidgetProject(
     val id: String,
     val title: String,
     val emoji: String?,
+    val priority: String? = null,
+    val state: String? = null,
 )
 
 @JsonClass(generateAdapter = true)
@@ -21,6 +23,8 @@ data class WidgetTask(
     val title: String,
     val emoji: String?,
     val parentId: String,
+    val priority: String? = null,
+    val state: String? = null,
 )
 
 data class WidgetData(
@@ -52,9 +56,10 @@ class WidgetDataProvider(private val context: Context) {
     }
 
     private fun fetch(url: String, sessionToken: String): String? {
+        // Send both cookie names: secure (HTTPS/Vercel) and plain (local dev)
         val request = Request.Builder()
             .url(url)
-            .addHeader("Cookie", "authjs.session-token=$sessionToken")
+            .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
             .build()
 
         return client.newCall(request).execute().use { response ->

@@ -13,8 +13,9 @@ class AuthInterceptor @Inject constructor(
         val token = sessionManager.sessionToken
             ?: return chain.proceed(request)
 
+        // Send both cookie names: secure (HTTPS/Vercel) and plain (local dev)
         val authenticatedRequest = request.newBuilder()
-            .addHeader("Cookie", "authjs.session-token=$token")
+            .addHeader("Cookie", "__Secure-authjs.session-token=$token; authjs.session-token=$token")
             .build()
 
         return chain.proceed(authenticatedRequest)

@@ -34,7 +34,8 @@ export function Dashboard() {
   const [allProjects, setAllProjects] = useState<Project[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [stateFilter, setStateFilter] = useState('ACTIVE')
+  const [projectStateFilter, setProjectStateFilter] = useState('ACTIVE')
+  const [taskStateFilter, setTaskStateFilter] = useState('ACTIVE')
   const [refreshKey, setRefreshKey] = useState(0)
   const { isCollapsed, toggle } = useCollapseState()
 
@@ -58,9 +59,9 @@ export function Dashboard() {
   }, [fetchProjects])
 
   const filtered =
-    stateFilter === 'ALL'
+    projectStateFilter === 'ALL'
       ? allProjects
-      : allProjects.filter((p) => p.state === stateFilter)
+      : allProjects.filter((p) => p.state === projectStateFilter)
 
   async function handleReorder(reordered: Project[]) {
     const newAll = [...allProjects]
@@ -83,21 +84,45 @@ export function Dashboard() {
     <div className="mx-auto max-w-3xl space-y-4">
       {/* Top bar: filters + create */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1">
-          {FILTER_OPTIONS.map((option) => (
-            <button
-              key={option.value}
-              onClick={() => setStateFilter(option.value)}
-              className={cn(
-                'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                stateFilter === option.value
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-              )}
-            >
-              {option.label}
-            </button>
-          ))}
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Projects:</span>
+            <div className="flex flex-wrap gap-1">
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setProjectStateFilter(option.value)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    projectStateFilter === option.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Tasks:</span>
+            <div className="flex flex-wrap gap-1">
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.value}
+                  onClick={() => setTaskStateFilter(option.value)}
+                  className={cn(
+                    'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                    taskStateFilter === option.value
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
         <CreateProjectDialog onCreated={fetchProjects} />
       </div>
@@ -131,15 +156,16 @@ export function Dashboard() {
               onActionComplete={fetchProjects}
               dragHandleProps={dragHandleProps}
               refreshKey={refreshKey}
+              taskStateFilter={taskStateFilter}
             />
           )}
         />
       ) : (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <p className="text-muted-foreground text-sm">
-            {stateFilter === 'ALL'
+            {projectStateFilter === 'ALL'
               ? 'No projects yet. Create your first project to get started.'
-              : `No ${STATE_LABELS[stateFilter as TaskState].toLowerCase()} projects.`}
+              : `No ${STATE_LABELS[projectStateFilter as TaskState].toLowerCase()} projects.`}
           </p>
         </div>
       )}
