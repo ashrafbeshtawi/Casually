@@ -4,15 +4,20 @@ import android.content.Context
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
+import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.*
 import androidx.glance.text.FontWeight
 import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
+import com.casually.app.BuildConfig
 import com.casually.app.MainActivity
 import com.casually.app.data.SessionManager
 
@@ -25,6 +30,36 @@ private val WidgetOnSurfaceLight = android.graphics.Color.parseColor("#1C1B1F")
 private val WidgetOnSurfaceDark = android.graphics.Color.parseColor("#E6E1E5")
 private val WidgetMutedLight = android.graphics.Color.parseColor("#49454F")
 private val WidgetMutedDark = android.graphics.Color.parseColor("#CAC4D0")
+
+// State badge colors
+private val StateActive = android.graphics.Color.parseColor("#22C55E")
+private val StateWaiting = android.graphics.Color.parseColor("#EAB308")
+private val StateBlocked = android.graphics.Color.parseColor("#EF4444")
+private val StateDone = android.graphics.Color.parseColor("#6B7280")
+
+private fun stateColor(state: String?): Int = when (state) {
+    "ACTIVE" -> StateActive
+    "WAITING" -> StateWaiting
+    "BLOCKED" -> StateBlocked
+    "DONE" -> StateDone
+    else -> StateActive
+}
+
+private fun stateLabel(state: String?): String = when (state) {
+    "ACTIVE" -> "Active"
+    "WAITING" -> "Wait"
+    "BLOCKED" -> "Block"
+    "DONE" -> "Done"
+    else -> "Active"
+}
+
+private fun nextState(current: String?): String = when (current) {
+    "ACTIVE" -> "WAITING"
+    "WAITING" -> "BLOCKED"
+    "BLOCKED" -> "DONE"
+    "DONE" -> "ACTIVE"
+    else -> "WAITING"
+}
 
 // Priority colors
 private val PriorityHighest = android.graphics.Color.parseColor("#EF4444")
@@ -42,6 +77,48 @@ private fun priorityColor(priority: String?): Int = when (priority) {
     else -> PriorityMedium
 }
 
+// Action parameter keys for state cycling
+private val ParamItemId = ActionParameters.Key<String>("item_id")
+private val ParamItemType = ActionParameters.Key<String>("item_type")
+private val ParamCurrentState = ActionParameters.Key<String>("current_state")
+
+class CycleStateAction : ActionCallback {
+    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+        val id = parameters[ParamItemId] ?: return
+        val type = parameters[ParamItemType] ?: return
+        val currentState = parameters[ParamCurrentState] ?: return
+
+        val newState = nextState(currentState)
+        val sessionManager = SessionManager(context)
+        val token = sessionManager.sessionToken ?: return
+
+        val provider = WidgetDataProvider(context)
+
+        // Optimistic: mutate cache immediately and update widget
+        val cached = provider.loadFromCache()
+        if (cached != null) {
+            val optimistic = if (type == "long") {
+                cached.copy(projects = cached.projects.map {
+                    if (it.id == id) it.copy(state = newState) else it
+                })
+            } else {
+                cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
+                    tasks.map { if (it.id == id) it.copy(state = newState) else it }
+                })
+            }
+            provider.saveToCache(optimistic)
+            CasuallyWidget().updateAll(context)
+        }
+
+        // Fire API in background, then re-fetch and sync
+        val data = provider.changeState(BuildConfig.API_BASE_URL, token, id, type, newState)
+        if (data != null) {
+            provider.saveToCache(data)
+        }
+        CasuallyWidget().updateAll(context)
+    }
+}
+
 class CasuallyWidget : GlanceAppWidget() {
 
     override val sizeMode = SizeMode.Exact
@@ -49,7 +126,18 @@ class CasuallyWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val sessionManager = SessionManager(context)
         val provider = WidgetDataProvider(context)
-        val data = provider.loadFromCache()
+
+        // Try cache first; if empty and logged in, fetch fresh data inline
+        var data = provider.loadFromCache()
+        if (data == null && sessionManager.isLoggedIn) {
+            val token = sessionManager.sessionToken
+            if (token != null) {
+                data = provider.fetchData(BuildConfig.API_BASE_URL, token)
+                if (data != null) {
+                    provider.saveToCache(data)
+                }
+            }
+        }
 
         val surfaceColor = ColorProvider(
             day = androidx.compose.ui.graphics.Color(WidgetSurfaceLight),
@@ -67,6 +155,10 @@ class CasuallyWidget : GlanceAppWidget() {
             day = androidx.compose.ui.graphics.Color(WidgetPurple),
             night = androidx.compose.ui.graphics.Color(WidgetPurpleLight),
         )
+        val whiteColor = ColorProvider(
+            day = androidx.compose.ui.graphics.Color.White,
+            night = androidx.compose.ui.graphics.Color.White,
+        )
 
         provideContent {
             GlanceTheme {
@@ -77,7 +169,7 @@ class CasuallyWidget : GlanceAppWidget() {
                         .padding(12.dp)
                         .cornerRadius(16.dp),
                 ) {
-                    // Branded header
+                    // Branded header with "+" button
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -91,6 +183,25 @@ class CasuallyWidget : GlanceAppWidget() {
                             ),
                             modifier = GlanceModifier.defaultWeight(),
                         )
+                        if (sessionManager.isLoggedIn) {
+                            Box(
+                                modifier = GlanceModifier
+                                    .cornerRadius(12.dp)
+                                    .background(purpleColor)
+                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .clickable(actionStartActivity<MainActivity>()),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "+",
+                                    style = TextStyle(
+                                        color = whiteColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 16.sp,
+                                    ),
+                                )
+                            }
+                        }
                     }
 
                     // Purple accent bar
@@ -144,24 +255,54 @@ class CasuallyWidget : GlanceAppWidget() {
                                     Column(
                                         modifier = GlanceModifier
                                             .fillMaxWidth()
-                                            .padding(vertical = 4.dp)
-                                            .clickable(actionStartActivity<MainActivity>()),
+                                            .padding(vertical = 4.dp),
                                     ) {
                                         // Project header row
                                         Row(
                                             modifier = GlanceModifier.fillMaxWidth(),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
+                                            // Tappable state badge for project
+                                            val projColor = stateColor(project.state)
+                                            Box(
+                                                modifier = GlanceModifier
+                                                    .cornerRadius(8.dp)
+                                                    .background(ColorProvider(
+                                                        day = androidx.compose.ui.graphics.Color(projColor),
+                                                        night = androidx.compose.ui.graphics.Color(projColor),
+                                                    ))
+                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
+                                                    .clickable(actionRunCallback<CycleStateAction>(
+                                                        actionParametersOf(
+                                                            ParamItemId to project.id,
+                                                            ParamItemType to "long",
+                                                            ParamCurrentState to (project.state ?: "ACTIVE"),
+                                                        )
+                                                    )),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Text(
+                                                    stateLabel(project.state),
+                                                    style = TextStyle(
+                                                        color = whiteColor,
+                                                        fontSize = 10.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                    ),
+                                                )
+                                            }
+                                            Spacer(modifier = GlanceModifier.width(6.dp))
                                             Text(
                                                 "${project.emoji ?: ""} ${project.title}".trim(),
                                                 style = TextStyle(
                                                     fontWeight = FontWeight.Bold,
                                                     color = onSurfaceColor,
+                                                    fontSize = 14.sp,
                                                 ),
-                                                modifier = GlanceModifier.defaultWeight(),
+                                                modifier = GlanceModifier
+                                                    .defaultWeight()
+                                                    .clickable(actionStartActivity<MainActivity>()),
                                             )
                                             if (totalTasks > 0) {
-                                                // Task count badge
                                                 Box(
                                                     modifier = GlanceModifier
                                                         .cornerRadius(10.dp)
@@ -171,10 +312,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                     Text(
                                                         "$doneTasks/$totalTasks",
                                                         style = TextStyle(
-                                                            color = ColorProvider(
-                                                                day = androidx.compose.ui.graphics.Color.White,
-                                                                night = androidx.compose.ui.graphics.Color.White,
-                                                            ),
+                                                            color = whiteColor,
                                                             fontSize = 11.sp,
                                                             fontWeight = FontWeight.Medium,
                                                         ),
@@ -188,9 +326,38 @@ class CasuallyWidget : GlanceAppWidget() {
                                             Row(
                                                 modifier = GlanceModifier
                                                     .fillMaxWidth()
-                                                    .padding(start = 16.dp, top = 2.dp, bottom = 2.dp),
+                                                    .padding(start = 16.dp, top = 3.dp, bottom = 3.dp),
                                                 verticalAlignment = Alignment.CenterVertically,
                                             ) {
+                                                // Tappable state badge for task
+                                                val taskColor = stateColor(task.state)
+                                                Box(
+                                                    modifier = GlanceModifier
+                                                        .cornerRadius(6.dp)
+                                                        .background(ColorProvider(
+                                                            day = androidx.compose.ui.graphics.Color(taskColor),
+                                                            night = androidx.compose.ui.graphics.Color(taskColor),
+                                                        ))
+                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
+                                                        .clickable(actionRunCallback<CycleStateAction>(
+                                                            actionParametersOf(
+                                                                ParamItemId to task.id,
+                                                                ParamItemType to "short",
+                                                                ParamCurrentState to (task.state ?: "ACTIVE"),
+                                                            )
+                                                        )),
+                                                    contentAlignment = Alignment.Center,
+                                                ) {
+                                                    Text(
+                                                        stateLabel(task.state),
+                                                        style = TextStyle(
+                                                            color = whiteColor,
+                                                            fontSize = 9.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                        ),
+                                                    )
+                                                }
+                                                Spacer(modifier = GlanceModifier.width(6.dp))
                                                 // Priority dot
                                                 val dotColor = priorityColor(task.priority)
                                                 Box(
@@ -209,6 +376,9 @@ class CasuallyWidget : GlanceAppWidget() {
                                                         color = mutedColor,
                                                         fontSize = 13.sp,
                                                     ),
+                                                    modifier = GlanceModifier
+                                                        .defaultWeight()
+                                                        .clickable(actionStartActivity<MainActivity>()),
                                                 )
                                             }
                                         }
@@ -225,4 +395,9 @@ class CasuallyWidget : GlanceAppWidget() {
 
 class CasuallyWidgetReceiver : GlanceAppWidgetReceiver() {
     override val glanceAppWidget: GlanceAppWidget = CasuallyWidget()
+
+    override fun onEnabled(context: Context) {
+        super.onEnabled(context)
+        WidgetRefreshWorker.refreshNow(context)
+    }
 }

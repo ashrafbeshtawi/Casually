@@ -4,9 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.casually.app.data.repository.TaskRepository
 import com.casually.app.domain.model.LongRunningTask
+import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -31,7 +33,31 @@ class DashboardViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
 
-    init { refresh() }
+    init {
+        refresh()
+        startAutoRefresh()
+    }
+
+    private fun startAutoRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                delay(5 * 60 * 1000L) // 5 minutes
+                silentRefresh()
+            }
+        }
+    }
+
+    private fun silentRefresh() {
+        viewModelScope.launch {
+            try {
+                val projects = taskRepository.getLongTasks()
+                _uiState.value = _uiState.value.copy(projects = projects)
+                for (id in _uiState.value.expandedProjects) {
+                    fetchChildren(id)
+                }
+            } catch (_: Exception) {}
+        }
+    }
 
     fun refresh() {
         viewModelScope.launch {
@@ -100,23 +126,35 @@ class DashboardViewModel @Inject constructor(
         fetchChildren(projectId)
     }
 
-    // Task actions
+    // Task actions (optimistic)
     fun changeTaskState(taskId: String, projectId: String, state: String) {
+        val newState = TaskState.valueOf(state)
+        _uiState.value = _uiState.value.copy(
+            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
+                if (pid == projectId) tasks.map { if (it.id == taskId) it.copy(state = newState) else it }
+                else tasks
+            }
+        )
         viewModelScope.launch {
             try {
                 taskRepository.changeShortTaskState(taskId, state)
-                fetchChildren(projectId)
                 refreshProjectList()
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 
     fun changeTaskPriority(taskId: String, projectId: String, priority: String) {
+        val newPriority = Priority.valueOf(priority)
+        _uiState.value = _uiState.value.copy(
+            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
+                if (pid == projectId) tasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it }
+                else tasks
+            }
+        )
         viewModelScope.launch {
             try {
                 taskRepository.updateShortTask(taskId, priority = priority)
-                fetchChildren(projectId)
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 
@@ -130,12 +168,16 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun deleteTask(taskId: String, projectId: String) {
+        _uiState.value = _uiState.value.copy(
+            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
+                if (pid == projectId) tasks.filter { it.id != taskId } else tasks
+            }
+        )
         viewModelScope.launch {
             try {
                 taskRepository.deleteShortTask(taskId)
-                fetchChildren(projectId)
                 refreshProjectList()
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 
@@ -162,22 +204,32 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    // Project actions
+    // Project actions (optimistic)
     fun changeProjectState(projectId: String, state: String) {
+        val newState = TaskState.valueOf(state)
+        _uiState.value = _uiState.value.copy(
+            projects = _uiState.value.projects.map {
+                if (it.id == projectId) it.copy(state = newState) else it
+            }
+        )
         viewModelScope.launch {
             try {
                 taskRepository.changeLongTaskState(projectId, state)
-                refresh()
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 
     fun changeProjectPriority(projectId: String, priority: String) {
+        val newPriority = Priority.valueOf(priority)
+        _uiState.value = _uiState.value.copy(
+            projects = _uiState.value.projects.map {
+                if (it.id == projectId) it.copy(priority = newPriority) else it
+            }
+        )
         viewModelScope.launch {
             try {
                 taskRepository.updateLongTask(projectId, priority = priority)
-                refreshProjectList()
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 
@@ -191,19 +243,15 @@ class DashboardViewModel @Inject constructor(
     }
 
     fun deleteProject(projectId: String) {
+        _uiState.value = _uiState.value.copy(
+            projects = _uiState.value.projects.filter { it.id != projectId },
+            expandedProjects = _uiState.value.expandedProjects - projectId,
+            childrenByProject = _uiState.value.childrenByProject - projectId,
+        )
         viewModelScope.launch {
             try {
                 taskRepository.deleteLongTask(projectId)
-                val expanded = _uiState.value.expandedProjects.toMutableSet()
-                expanded.remove(projectId)
-                val children = _uiState.value.childrenByProject.toMutableMap()
-                children.remove(projectId)
-                _uiState.value = _uiState.value.copy(
-                    expandedProjects = expanded,
-                    childrenByProject = children,
-                )
-                refreshProjectList()
-            } catch (_: Exception) {}
+            } catch (_: Exception) { refresh() }
         }
     }
 

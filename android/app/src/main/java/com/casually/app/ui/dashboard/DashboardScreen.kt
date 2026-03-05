@@ -82,18 +82,21 @@ fun DashboardScreen(
     onCreateTask: (parentId: String) -> Unit,
     onEditProject: (LongRunningTask) -> Unit,
     onEditTask: (ShortRunningTask, String) -> Unit,
+    refreshTrigger: Int = 0,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
+    // Re-fetch when external actions (create/edit) bump the trigger
+    LaunchedEffect(refreshTrigger) {
+        if (refreshTrigger > 0) viewModel.refresh()
+    }
+
     // Dialogs
-    var stateDialogTarget by remember { mutableStateOf<Pair<String, TaskState>?>(null) }
-    var priorityDialogTarget by remember { mutableStateOf<Pair<String, Priority>?>(null) }
     var moveDialogTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deleteConfirm by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) }
-    var dialogIsProject by remember { mutableStateOf(false) }
-    var dialogProjectId by remember { mutableStateOf("") }
+    var deleteProjectId by remember { mutableStateOf("") }
 
     val filtered = if (uiState.projectStateFilter == "ALL") {
         uiState.projects
@@ -177,7 +180,6 @@ fun DashboardScreen(
                         val childCount = project.count?.children ?: 0
                         val allChildren = uiState.childrenByProject[project.id] ?: emptyList()
                         val isLoadingChildren = uiState.loadingChildren.contains(project.id)
-                        val doneCount = allChildren.count { it.state == TaskState.DONE }
 
                         val filteredChildren = if (uiState.taskStateFilter == "ALL") {
                             allChildren
@@ -191,20 +193,11 @@ fun DashboardScreen(
                                 project = project,
                                 isExpanded = isExpanded,
                                 childCount = childCount,
-                                doneCount = if (isExpanded) doneCount else 0,
                                 isProtected = isProtected,
                                 onToggle = { viewModel.toggleProject(project.id) },
                                 onAddTask = { onCreateTask(project.id) },
-                                onChangeState = {
-                                    dialogIsProject = true
-                                    dialogProjectId = project.id
-                                    stateDialogTarget = Pair(project.id, project.state)
-                                },
-                                onChangePriority = {
-                                    dialogIsProject = true
-                                    dialogProjectId = project.id
-                                    priorityDialogTarget = Pair(project.id, project.priority)
-                                },
+                                onChangeState = { newState -> viewModel.changeProjectState(project.id, newState.name) },
+                                onChangePriority = { newPriority -> viewModel.changeProjectPriority(project.id, newPriority.name) },
                                 onEdit = { onEditProject(project) },
                                 onDelete = { deleteConfirm = Triple(project.id, project.title, true) },
                             )
@@ -224,18 +217,13 @@ fun DashboardScreen(
                                     TaskRow(
                                         task = task,
                                         modifier = Modifier.animateItem(),
-                                        onChangeState = {
-                                            dialogIsProject = false
-                                            dialogProjectId = project.id
-                                            stateDialogTarget = Pair(task.id, task.state)
-                                        },
-                                        onChangePriority = {
-                                            dialogIsProject = false
-                                            dialogProjectId = project.id
-                                            priorityDialogTarget = Pair(task.id, task.priority)
-                                        },
+                                        onChangeState = { newState -> viewModel.changeTaskState(task.id, project.id, newState.name) },
+                                        onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, project.id, newPriority.name) },
                                         onEdit = { onEditTask(task, project.id) },
-                                        onDelete = { deleteConfirm = Triple(task.id, task.title, false) },
+                                        onDelete = {
+                                            deleteProjectId = project.id
+                                            deleteConfirm = Triple(task.id, task.title, false)
+                                        },
                                         onMove = { moveDialogTarget = Pair(task.id, project.id) },
                                     )
                                 }
@@ -263,39 +251,6 @@ fun DashboardScreen(
         }
     }
 
-    // State change dialog
-    stateDialogTarget?.let { (id, currentState) ->
-        StateChangeDialog(
-            currentState = currentState,
-            isProject = dialogIsProject,
-            onDismiss = { stateDialogTarget = null },
-            onConfirm = { newState ->
-                if (dialogIsProject) {
-                    viewModel.changeProjectState(id, newState.name)
-                } else {
-                    viewModel.changeTaskState(id, dialogProjectId, newState.name)
-                }
-                stateDialogTarget = null
-            },
-        )
-    }
-
-    // Priority change dialog
-    priorityDialogTarget?.let { (id, currentPriority) ->
-        PriorityChangeDialog(
-            currentPriority = currentPriority,
-            onDismiss = { priorityDialogTarget = null },
-            onConfirm = { newPriority ->
-                if (dialogIsProject) {
-                    viewModel.changeProjectPriority(id, newPriority.name)
-                } else {
-                    viewModel.changeTaskPriority(id, dialogProjectId, newPriority.name)
-                }
-                priorityDialogTarget = null
-            },
-        )
-    }
-
     // Move task dialog
     moveDialogTarget?.let { (taskId, currentParentId) ->
         MoveTaskDialog(
@@ -318,7 +273,7 @@ fun DashboardScreen(
             confirmButton = {
                 TextButton(onClick = {
                     if (isProject) viewModel.deleteProject(id)
-                    else viewModel.deleteTask(id, dialogProjectId)
+                    else viewModel.deleteTask(id, deleteProjectId)
                     deleteConfirm = null
                 }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)
@@ -336,12 +291,11 @@ private fun ProjectHeader(
     project: LongRunningTask,
     isExpanded: Boolean,
     childCount: Int,
-    doneCount: Int,
     isProtected: Boolean,
     onToggle: () -> Unit,
     onAddTask: () -> Unit,
-    onChangeState: () -> Unit,
-    onChangePriority: () -> Unit,
+    onChangeState: (TaskState) -> Unit,
+    onChangePriority: (Priority) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
 ) {
@@ -351,6 +305,9 @@ private fun ProjectHeader(
         animationSpec = tween(200),
         label = "chevron",
     )
+    var showStateMenu by remember { mutableStateOf(false) }
+    var showPriorityMenu by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = Modifier
@@ -375,7 +332,7 @@ private fun ProjectHeader(
             Row(
                 modifier = Modifier
                     .clickable { onToggle() }
-                    .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp),
+                    .padding(start = 12.dp, end = 4.dp, top = 10.dp, bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
@@ -396,110 +353,92 @@ private fun ProjectHeader(
                     style = MaterialTheme.typography.titleSmall,
                     modifier = Modifier.weight(1f),
                 )
-                // Tappable state badge
-                Surface(
-                    onClick = onChangeState,
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.Transparent,
-                ) {
-                    StateBadge(project.state)
-                }
-                Spacer(Modifier.width(4.dp))
-                // Tappable priority dot
-                Surface(
-                    onClick = onChangePriority,
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Transparent,
-                ) {
-                    Box(
-                        modifier = Modifier.size(28.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        PriorityDot(project.priority, size = PriorityDotSize.Medium)
-                    }
-                }
-            }
-
-            // Progress bar when has children
-            if (childCount > 0) {
-                TaskProgressBar(
-                    done = if (isExpanded) doneCount else 0,
-                    total = childCount,
-                    priority = project.priority,
-                    modifier = Modifier.padding(start = 40.dp, end = 12.dp, bottom = 4.dp),
-                )
-            }
-
-            // Action row — only when expanded
-            AnimatedVisibility(
-                visible = isExpanded,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically(),
-            ) {
-                Row(
-                    modifier = Modifier
-                        .padding(start = 40.dp, end = 8.dp, bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    // Add task button — always shown
+                // State badge with dropdown
+                Box {
                     Surface(
-                        onClick = onAddTask,
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainer,
+                        onClick = { showStateMenu = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.Transparent,
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Icon(Icons.Default.Add, "Add", Modifier.size(18.dp))
-                            Text("Add", style = MaterialTheme.typography.labelMedium)
+                        StateBadge(project.state)
+                    }
+                    DropdownMenu(
+                        expanded = showStateMenu,
+                        onDismissRequest = { showStateMenu = false },
+                    ) {
+                        TaskState.validTransitions(project.state).forEach { state ->
+                            DropdownMenuItem(
+                                text = { StateBadge(state) },
+                                onClick = {
+                                    showStateMenu = false
+                                    onChangeState(state)
+                                },
+                            )
                         }
                     }
-
-                    if (!isProtected) {
-                        // Edit button
-                        Surface(
-                            onClick = onEdit,
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.surfaceContainer,
+                }
+                // Priority dot with dropdown
+                Box {
+                    Surface(
+                        onClick = { showPriorityMenu = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Transparent,
+                    ) {
+                        Box(
+                            modifier = Modifier.size(28.dp),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Icon(Icons.Default.Edit, "Edit", Modifier.size(18.dp))
-                                Text("Edit", style = MaterialTheme.typography.labelMedium)
-                            }
-                        }
-
-                        // Delete button
-                        Surface(
-                            onClick = onDelete,
-                            shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Icon(
-                                    Icons.Default.Delete, "Delete",
-                                    Modifier.size(18.dp),
-                                    tint = MaterialTheme.colorScheme.error,
-                                )
-                                Text(
-                                    "Delete",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.error,
-                                )
-                            }
+                            PriorityDot(project.priority, size = PriorityDotSize.Medium)
                         }
                     }
-
-                    Spacer(Modifier.weight(1f))
+                    DropdownMenu(
+                        expanded = showPriorityMenu,
+                        onDismissRequest = { showPriorityMenu = false },
+                    ) {
+                        Priority.entries.forEach { priority ->
+                            DropdownMenuItem(
+                                text = { PriorityDot(priority, showLabel = true) },
+                                onClick = {
+                                    showPriorityMenu = false
+                                    onChangePriority(priority)
+                                },
+                            )
+                        }
+                    }
+                }
+                // Overflow menu
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.MoreVert, "More options", Modifier.size(20.dp))
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Add task") },
+                            onClick = { showMenu = false; onAddTask() },
+                            leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(18.dp)) },
+                        )
+                        if (!isProtected) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = { showMenu = false; onEdit() },
+                                leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)) },
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                                onClick = { showMenu = false; onDelete() },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Delete, null,
+                                        Modifier.size(18.dp),
+                                        tint = MaterialTheme.colorScheme.error,
+                                    )
+                                },
+                            )
+                        }
+                    }
                 }
             }
 
@@ -526,14 +465,16 @@ private fun ProjectHeader(
 private fun TaskRow(
     task: ShortRunningTask,
     modifier: Modifier = Modifier,
-    onChangeState: () -> Unit,
-    onChangePriority: () -> Unit,
+    onChangeState: (TaskState) -> Unit,
+    onChangePriority: (Priority) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onMove: () -> Unit,
 ) {
     val borderColor = task.priority.color
     var showMenu by remember { mutableStateOf(false) }
+    var showStateMenu by remember { mutableStateOf(false) }
+    var showPriorityMenu by remember { mutableStateOf(false) }
 
     Card(
         modifier = modifier
@@ -567,28 +508,60 @@ private fun TaskRow(
                 modifier = Modifier.weight(1f),
             )
 
-            // Tappable priority dot
-            Surface(
-                onClick = onChangePriority,
-                shape = RoundedCornerShape(12.dp),
-                color = Color.Transparent,
-            ) {
-                Box(
-                    modifier = Modifier.size(32.dp),
-                    contentAlignment = Alignment.Center,
+            // Priority dot with dropdown
+            Box {
+                Surface(
+                    onClick = { showPriorityMenu = true },
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color.Transparent,
                 ) {
-                    PriorityDot(task.priority, size = PriorityDotSize.Medium)
+                    Box(
+                        modifier = Modifier.size(32.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        PriorityDot(task.priority, size = PriorityDotSize.Medium)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showPriorityMenu,
+                    onDismissRequest = { showPriorityMenu = false },
+                ) {
+                    Priority.entries.forEach { priority ->
+                        DropdownMenuItem(
+                            text = { PriorityDot(priority, showLabel = true) },
+                            onClick = {
+                                showPriorityMenu = false
+                                onChangePriority(priority)
+                            },
+                        )
+                    }
                 }
             }
 
-            // Tappable state badge
-            Surface(
-                onClick = onChangeState,
-                shape = RoundedCornerShape(20.dp),
-                color = Color.Transparent,
-            ) {
-                Box(modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
-                    StateBadge(task.state)
+            // State badge with dropdown
+            Box {
+                Surface(
+                    onClick = { showStateMenu = true },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.Transparent,
+                ) {
+                    Box(modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
+                        StateBadge(task.state)
+                    }
+                }
+                DropdownMenu(
+                    expanded = showStateMenu,
+                    onDismissRequest = { showStateMenu = false },
+                ) {
+                    TaskState.validTransitions(task.state).forEach { state ->
+                        DropdownMenuItem(
+                            text = { StateBadge(state) },
+                            onClick = {
+                                showStateMenu = false
+                                onChangeState(state)
+                            },
+                        )
+                    }
                 }
             }
 

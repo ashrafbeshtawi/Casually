@@ -7,6 +7,7 @@ import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -22,6 +23,7 @@ import com.casually.app.ui.login.LoginScreen
 import com.casually.app.ui.projectdetail.ProjectDetailScreen
 import com.casually.app.ui.settings.SettingsScreen
 import com.casually.app.ui.theme.ThemeMode
+import com.casually.app.widget.WidgetRefreshWorker
 import kotlinx.coroutines.launch
 
 enum class BottomNavItem(val route: String, val label: String, val icon: ImageVector) {
@@ -47,10 +49,19 @@ fun AppNavigation(
     val scope = rememberCoroutineScope()
 
     var dashboardRefreshTrigger by remember { mutableIntStateOf(0) }
+    val context = LocalContext.current
+
+    // Refresh widget whenever dashboard data changes
+    LaunchedEffect(dashboardRefreshTrigger) {
+        if (dashboardRefreshTrigger > 0) {
+            WidgetRefreshWorker.refreshNow(context)
+        }
+    }
 
     NavHost(navController = navController, startDestination = startRoute) {
         composable("login") {
             LoginScreen(onLoginSuccess = {
+                WidgetRefreshWorker.refreshNow(context)
                 navController.navigate("main") {
                     popUpTo("login") { inclusive = true }
                 }
@@ -90,14 +101,13 @@ fun AppNavigation(
                     modifier = Modifier.padding(padding),
                 ) {
                     composable(BottomNavItem.Dashboard.route) {
-                        key(dashboardRefreshTrigger) {
-                            DashboardScreen(
-                                onCreateProject = { showCreateProject = true },
-                                onCreateTask = { parentId -> showCreateTask = parentId },
-                                onEditProject = { project -> showEditProject = project },
-                                onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
-                            )
-                        }
+                        DashboardScreen(
+                            onCreateProject = { showCreateProject = true },
+                            onCreateTask = { parentId -> showCreateTask = parentId },
+                            onEditProject = { project -> showEditProject = project },
+                            onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
+                            refreshTrigger = dashboardRefreshTrigger,
+                        )
                     }
                     composable(BottomNavItem.Settings.route) {
                         SettingsScreen(

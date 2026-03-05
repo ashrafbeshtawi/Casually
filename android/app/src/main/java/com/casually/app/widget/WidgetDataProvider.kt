@@ -5,8 +5,10 @@ import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 @JsonClass(generateAdapter = true)
 data class WidgetProject(
@@ -64,6 +66,29 @@ class WidgetDataProvider(private val context: Context) {
 
         return client.newCall(request).execute().use { response ->
             if (response.isSuccessful) response.body?.string() else null
+        }
+    }
+
+    /**
+     * Change the state of a project (long) or task (short) and re-fetch all data.
+     * @param type "long" or "short"
+     */
+    fun changeState(baseUrl: String, sessionToken: String, id: String, type: String, newState: String): WidgetData? {
+        return try {
+            val json = """{"state":"$newState"}"""
+            val body = json.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$baseUrl/api/tasks/$type/$id/state")
+                .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
+                .put(body)
+                .build()
+            val response = client.newCall(request).execute()
+            response.close()
+
+            // Re-fetch all data after state change
+            fetchData(baseUrl, sessionToken)
+        } catch (e: Exception) {
+            null
         }
     }
 

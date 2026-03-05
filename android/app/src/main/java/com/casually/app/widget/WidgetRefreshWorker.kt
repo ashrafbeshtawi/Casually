@@ -32,7 +32,7 @@ class WidgetRefreshWorker(
 
         fun enqueuePeriodicRefresh(context: Context) {
             val request = PeriodicWorkRequestBuilder<WidgetRefreshWorker>(
-                30, TimeUnit.MINUTES,
+                15, TimeUnit.MINUTES,
             ).setConstraints(
                 Constraints.Builder()
                     .setRequiredNetworkType(NetworkType.CONNECTED)
@@ -41,7 +41,7 @@ class WidgetRefreshWorker(
 
             WorkManager.getInstance(context).enqueueUniquePeriodicWork(
                 WORK_NAME,
-                ExistingPeriodicWorkPolicy.KEEP,
+                ExistingPeriodicWorkPolicy.UPDATE,
                 request,
             )
         }

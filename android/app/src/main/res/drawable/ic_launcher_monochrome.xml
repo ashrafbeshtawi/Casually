@@ -5,18 +5,18 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
 
-    <!-- Bar 1 — green (Active) -->
+    <!-- Bar 1 -->
     <path
-        android:fillColor="#22C55E"
+        android:fillColor="#000000"
         android:pathData="M35,35 H73 A5,5,0,0,1,78,40 A5,5,0,0,1,73,45 H35 A5,5,0,0,1,30,40 A5,5,0,0,1,35,35 Z" />
 
-    <!-- Bar 2 — yellow (Waiting) -->
+    <!-- Bar 2 -->
     <path
-        android:fillColor="#EAB308"
+        android:fillColor="#000000"
         android:pathData="M35,49 H60 A5,5,0,0,1,65,54 A5,5,0,0,1,60,59 H35 A5,5,0,0,1,30,54 A5,5,0,0,1,35,49 Z" />
 
-    <!-- Bar 3 — red (Blocked) -->
+    <!-- Bar 3 -->
     <path
-        android:fillColor="#EF4444"
+        android:fillColor="#000000"
         android:pathData="M35,63 H67 A5,5,0,0,1,72,68 A5,5,0,0,1,67,73 H35 A5,5,0,0,1,30,68 A5,5,0,0,1,35,63 Z" />
 </vector>
