@@ -70,7 +70,7 @@ export function DashboardTaskList({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Header with create button */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         {header}

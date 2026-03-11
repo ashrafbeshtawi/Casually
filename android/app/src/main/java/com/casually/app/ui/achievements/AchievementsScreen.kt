@@ -11,6 +11,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.casually.app.ui.components.*
@@ -65,7 +67,7 @@ fun AchievementsScreen(
                     }
                 }
 
-                // Done projects (display-only)
+                // Done projects as container cards (matching dashboard style)
                 if (uiState.doneProjects.isNotEmpty()) {
                     item(key = "projects-header") {
                         Text(
@@ -76,36 +78,66 @@ fun AchievementsScreen(
                         )
                     }
 
-                    items(uiState.doneProjects, key = { it.id }) { project ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
+                    uiState.doneProjects.forEach { project ->
+                        val children = uiState.childrenByProject[project.id] ?: emptyList()
+
+                        item(key = "project-${project.id}") {
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .drawBehind {
+                                        drawLine(
+                                            color = project.priority.color,
+                                            start = Offset(0f, 0f),
+                                            end = Offset(0f, size.height),
+                                            strokeWidth = 8f,
+                                        )
+                                    },
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                                ),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                             ) {
-                                if (project.emoji != null) {
-                                    Text(project.emoji, style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(Modifier.width(8.dp))
+                                Column {
+                                    Row(
+                                        modifier = Modifier.padding(
+                                            start = 12.dp, end = 12.dp,
+                                            top = 10.dp,
+                                            bottom = if (children.isEmpty()) 10.dp else 4.dp,
+                                        ),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        if (project.emoji != null) {
+                                            Text(project.emoji, style = MaterialTheme.typography.titleMedium)
+                                            Spacer(Modifier.width(6.dp))
+                                        }
+                                        Text(
+                                            project.title,
+                                            style = MaterialTheme.typography.titleSmall,
+                                            modifier = Modifier.weight(1f),
+                                        )
+                                        if (children.isNotEmpty()) {
+                                            Text(
+                                                "${children.size} done",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                        }
+                                    }
                                 }
-                                Text(
-                                    project.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f),
-                                )
                             }
+                        }
+
+                        // Done children under each project
+                        items(children, key = { it.id }) { task ->
+                            TaskRow(task = task, minimal = true)
                         }
                     }
                 }
 
-                // Done tasks grouped by project (display-only)
+                // Done tasks from non-done projects, grouped by project
                 uiState.tasksByProject.forEach { group ->
                     val label = if (group.projectEmoji != null) "${group.projectEmoji} ${group.projectTitle}" else group.projectTitle
 
@@ -119,31 +151,7 @@ fun AchievementsScreen(
                     }
 
                     items(group.tasks, key = { it.id }) { task ->
-                        Card(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 2.dp),
-                            shape = RoundedCornerShape(10.dp),
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.surface,
-                            ),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                if (task.emoji != null) {
-                                    Text(task.emoji, style = MaterialTheme.typography.bodyMedium)
-                                    Spacer(Modifier.width(8.dp))
-                                }
-                                Text(
-                                    task.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    modifier = Modifier.weight(1f),
-                                )
-                            }
-                        }
+                        TaskRow(task = task, minimal = true)
                     }
                 }
             }

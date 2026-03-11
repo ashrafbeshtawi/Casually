@@ -170,6 +170,7 @@ export function ActiveDashboard() {
                               taskType="short"
                               parentId={task.parentId}
                               onActionComplete={fetchData}
+                              hideEdit
                               variant="compact"
                             />
                           ))}
@@ -183,13 +184,20 @@ export function ActiveDashboard() {
           )}
 
           {/* Active one-off tasks */}
-          {hasOneOffs && (
+          {(hasOneOffs || oneOffProject) && (
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <Zap className="text-muted-foreground h-4 w-4" />
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   One-Off Tasks
                 </h2>
+                {oneOffProject && (
+                  <CreateShortTermTaskDialog
+                    parentId={oneOffProject.id}
+                    onCreated={fetchData}
+                    variant="icon"
+                  />
+                )}
               </div>
               <div className="space-y-0.5">
                 {oneOffTasks.map((task) => (
@@ -203,6 +211,7 @@ export function ActiveDashboard() {
                     taskType="short"
                     parentId={task.parentId}
                     onActionComplete={fetchData}
+                    hideEdit
                     variant="compact"
                   />
                 ))}
@@ -211,13 +220,20 @@ export function ActiveDashboard() {
           )}
 
           {/* Active routines */}
-          {hasRoutines && (
+          {(hasRoutines || routinesProject) && (
             <section className="space-y-3">
               <div className="flex items-center gap-2">
                 <RefreshCw className="text-muted-foreground h-4 w-4" />
                 <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   Routines
                 </h2>
+                {routinesProject && (
+                  <CreateShortTermTaskDialog
+                    parentId={routinesProject.id}
+                    onCreated={fetchData}
+                    variant="icon"
+                  />
+                )}
               </div>
               <div className="space-y-0.5">
                 {routineTasks.map((task) => (
@@ -231,6 +247,7 @@ export function ActiveDashboard() {
                     taskType="short"
                     parentId={task.parentId}
                     onActionComplete={fetchData}
+                    hideEdit
                     variant="compact"
                   />
                 ))}

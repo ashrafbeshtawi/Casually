@@ -153,9 +153,9 @@ fun ActiveDashboardScreen(
                         items(children, key = { it.id }) { task ->
                             TaskRow(
                                 task = task,
+                                showEdit = false,
                                 onChangeState = { newState -> viewModel.changeTaskState(task.id, project.id, newState.name) },
                                 onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, project.id, newPriority.name) },
-                                onEdit = { onEditTask(task, project.id) },
                                 onDelete = { deleteConfirm = Triple(task.id, task.title, project.id) },
                                 onMove = { moveDialogTarget = Pair(task.id, project.id) },
                             )
@@ -164,23 +164,36 @@ fun ActiveDashboardScreen(
                 }
 
                 // One-Off Tasks section
-                if (uiState.oneOffTasks.isNotEmpty()) {
+                if (uiState.oneOffTasks.isNotEmpty() || uiState.oneOffProjectId != null) {
                     item(key = "oneoffs-header") {
-                        Text(
-                            "ONE-OFF TASKS",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
                             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "ONE-OFF TASKS",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            uiState.oneOffProjectId?.let { pid ->
+                                IconButton(
+                                    onClick = { onCreateTask(pid) },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(Icons.Default.Add, "Add one-off task", Modifier.size(18.dp))
+                                }
+                            }
+                        }
                     }
 
                     items(uiState.oneOffTasks, key = { it.id }) { task ->
                         val parentId = uiState.oneOffProjectId ?: task.parentId
                         TaskRow(
                             task = task,
+                            showEdit = false,
                             onChangeState = { newState -> viewModel.changeTaskState(task.id, parentId, newState.name) },
                             onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, parentId, newPriority.name) },
-                            onEdit = { onEditTask(task, parentId) },
                             onDelete = { deleteConfirm = Triple(task.id, task.title, parentId) },
                             onMove = { moveDialogTarget = Pair(task.id, parentId) },
                         )
@@ -188,23 +201,36 @@ fun ActiveDashboardScreen(
                 }
 
                 // Routines section
-                if (uiState.routineTasks.isNotEmpty()) {
+                if (uiState.routineTasks.isNotEmpty() || uiState.routinesProjectId != null) {
                     item(key = "routines-header") {
-                        Text(
-                            "ROUTINES",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        Row(
                             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                        )
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "ROUTINES",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.weight(1f),
+                            )
+                            uiState.routinesProjectId?.let { pid ->
+                                IconButton(
+                                    onClick = { onCreateTask(pid) },
+                                    modifier = Modifier.size(32.dp),
+                                ) {
+                                    Icon(Icons.Default.Add, "Add routine", Modifier.size(18.dp))
+                                }
+                            }
+                        }
                     }
 
                     items(uiState.routineTasks, key = { it.id }) { task ->
                         val parentId = uiState.routinesProjectId ?: task.parentId
                         TaskRow(
                             task = task,
+                            showEdit = false,
                             onChangeState = { newState -> viewModel.changeTaskState(task.id, parentId, newState.name) },
                             onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, parentId, newPriority.name) },
-                            onEdit = { onEditTask(task, parentId) },
                             onDelete = { deleteConfirm = Triple(task.id, task.title, parentId) },
                             onMove = { moveDialogTarget = Pair(task.id, parentId) },
                         )

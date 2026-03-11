@@ -21,6 +21,7 @@ data class ProjectWithDoneTasks(
 data class AchievementsUiState(
     val isLoading: Boolean = true,
     val doneProjects: List<LongRunningTask> = emptyList(),
+    val childrenByProject: Map<String, List<ShortRunningTask>> = emptyMap(),
     val tasksByProject: List<ProjectWithDoneTasks> = emptyList(),
     val error: String? = null,
 )
@@ -46,19 +47,28 @@ class AchievementsViewModel @Inject constructor(
 
                 // Group tasks by parent project
                 val grouped = doneTasks.groupBy { it.parentId }
-                val tasksByProject = grouped.map { (parentId, tasks) ->
-                    val parent = tasks.firstOrNull()?.parent
-                    ProjectWithDoneTasks(
-                        projectId = parentId,
-                        projectTitle = parent?.title ?: "Unknown",
-                        projectEmoji = parent?.emoji,
-                        tasks = tasks,
-                    )
-                }
+                val doneProjectIds = doneProjects.map { it.id }.toSet()
+
+                // Children of done projects
+                val childrenByProject = grouped.filterKeys { it in doneProjectIds }
+
+                // Tasks from non-done projects (exclude tasks already shown under done projects)
+                val tasksByProject = grouped
+                    .filterKeys { it !in doneProjectIds }
+                    .map { (parentId, tasks) ->
+                        val parent = tasks.firstOrNull()?.parent
+                        ProjectWithDoneTasks(
+                            projectId = parentId,
+                            projectTitle = parent?.title ?: "Unknown",
+                            projectEmoji = parent?.emoji,
+                            tasks = tasks,
+                        )
+                    }
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     doneProjects = doneProjects,
+                    childrenByProject = childrenByProject,
                     tasksByProject = tasksByProject,
                 )
             } catch (e: Exception) {

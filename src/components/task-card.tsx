@@ -23,6 +23,7 @@ interface TaskCardProps {
   parentId?: string
   showDelete?: boolean
   showMove?: boolean
+  hideEdit?: boolean
   onActionComplete?: () => void
   onClick?: () => void
   /** Minimal mode: only show emoji + title (for protected project cards) */
@@ -44,6 +45,7 @@ export function TaskCard({
   parentId,
   showDelete,
   showMove,
+  hideEdit,
   onActionComplete,
   onClick,
   minimal,
@@ -105,18 +107,20 @@ export function TaskCard({
                   onStateChange={onActionComplete ? () => onActionComplete() : undefined}
                   size="sm"
                 />
-                <EditTaskDialog
-                  taskId={id}
-                  taskType={taskType}
-                  defaultValues={{
-                    title,
-                    description,
-                    emoji,
-                    priority,
-                    parentId,
-                  }}
-                  onEdited={onActionComplete}
-                />
+                {!hideEdit && (
+                  <EditTaskDialog
+                    taskId={id}
+                    taskType={taskType}
+                    defaultValues={{
+                      title,
+                      description,
+                      emoji,
+                      priority,
+                      parentId,
+                    }}
+                    onEdited={onActionComplete}
+                  />
+                )}
                 {showDelete && (
                   <DeleteTaskButton
                     taskId={id}

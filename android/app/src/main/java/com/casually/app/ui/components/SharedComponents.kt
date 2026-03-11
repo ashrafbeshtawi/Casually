@@ -248,11 +248,13 @@ fun ProjectHeader(
 fun TaskRow(
     task: ShortRunningTask,
     modifier: Modifier = Modifier,
-    onChangeState: (TaskState) -> Unit,
-    onChangePriority: (Priority) -> Unit,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit,
-    onMove: () -> Unit,
+    minimal: Boolean = false,
+    showEdit: Boolean = true,
+    onChangeState: (TaskState) -> Unit = {},
+    onChangePriority: (Priority) -> Unit = {},
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onMove: () -> Unit = {},
 ) {
     val borderColor = task.priority.color
     var showMenu by remember { mutableStateOf(false) }
@@ -278,7 +280,7 @@ fun TaskRow(
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+            modifier = Modifier.padding(start = 10.dp, end = if (minimal) 12.dp else 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (task.emoji != null) {
@@ -291,90 +293,94 @@ fun TaskRow(
                 modifier = Modifier.weight(1f),
             )
 
-            Box {
-                Surface(
-                    onClick = { showPriorityMenu = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color.Transparent,
-                ) {
-                    Box(
-                        modifier = Modifier.size(32.dp),
-                        contentAlignment = Alignment.Center,
+            if (!minimal) {
+                Box {
+                    Surface(
+                        onClick = { showPriorityMenu = true },
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color.Transparent,
                     ) {
-                        PriorityDot(task.priority, size = PriorityDotSize.Medium)
+                        Box(
+                            modifier = Modifier.size(32.dp),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            PriorityDot(task.priority, size = PriorityDotSize.Medium)
+                        }
                     }
-                }
-                DropdownMenu(
-                    expanded = showPriorityMenu,
-                    onDismissRequest = { showPriorityMenu = false },
-                ) {
-                    Priority.entries.forEach { priority ->
-                        DropdownMenuItem(
-                            text = { PriorityDot(priority, showLabel = true) },
-                            onClick = {
-                                showPriorityMenu = false
-                                onChangePriority(priority)
-                            },
-                        )
-                    }
-                }
-            }
-
-            Box {
-                Surface(
-                    onClick = { showStateMenu = true },
-                    shape = RoundedCornerShape(20.dp),
-                    color = Color.Transparent,
-                ) {
-                    Box(modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
-                        StateBadge(task.state)
-                    }
-                }
-                DropdownMenu(
-                    expanded = showStateMenu,
-                    onDismissRequest = { showStateMenu = false },
-                ) {
-                    TaskState.validTransitions(task.state).forEach { state ->
-                        DropdownMenuItem(
-                            text = { StateBadge(state) },
-                            onClick = {
-                                showStateMenu = false
-                                onChangeState(state)
-                            },
-                        )
-                    }
-                }
-            }
-
-            Box {
-                IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
-                    Icon(Icons.Default.MoreVert, "More options", Modifier.size(20.dp))
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                ) {
-                    DropdownMenuItem(
-                        text = { Text("Edit") },
-                        onClick = { showMenu = false; onEdit() },
-                        leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Move to\u2026") },
-                        onClick = { showMenu = false; onMove() },
-                        leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null, Modifier.size(18.dp)) },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
-                        onClick = { showMenu = false; onDelete() },
-                        leadingIcon = {
-                            Icon(
-                                Icons.Default.Delete, null,
-                                Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.error,
+                    DropdownMenu(
+                        expanded = showPriorityMenu,
+                        onDismissRequest = { showPriorityMenu = false },
+                    ) {
+                        Priority.entries.forEach { priority ->
+                            DropdownMenuItem(
+                                text = { PriorityDot(priority, showLabel = true) },
+                                onClick = {
+                                    showPriorityMenu = false
+                                    onChangePriority(priority)
+                                },
                             )
-                        },
-                    )
+                        }
+                    }
+                }
+
+                Box {
+                    Surface(
+                        onClick = { showStateMenu = true },
+                        shape = RoundedCornerShape(20.dp),
+                        color = Color.Transparent,
+                    ) {
+                        Box(modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
+                            StateBadge(task.state)
+                        }
+                    }
+                    DropdownMenu(
+                        expanded = showStateMenu,
+                        onDismissRequest = { showStateMenu = false },
+                    ) {
+                        TaskState.validTransitions(task.state).forEach { state ->
+                            DropdownMenuItem(
+                                text = { StateBadge(state) },
+                                onClick = {
+                                    showStateMenu = false
+                                    onChangeState(state)
+                                },
+                            )
+                        }
+                    }
+                }
+
+                Box {
+                    IconButton(onClick = { showMenu = true }, modifier = Modifier.size(36.dp)) {
+                        Icon(Icons.Default.MoreVert, "More options", Modifier.size(20.dp))
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                    ) {
+                        if (showEdit) {
+                            DropdownMenuItem(
+                                text = { Text("Edit") },
+                                onClick = { showMenu = false; onEdit() },
+                                leadingIcon = { Icon(Icons.Default.Edit, null, Modifier.size(18.dp)) },
+                            )
+                        }
+                        DropdownMenuItem(
+                            text = { Text("Move to\u2026") },
+                            onClick = { showMenu = false; onMove() },
+                            leadingIcon = { Icon(Icons.AutoMirrored.Filled.DriveFileMove, null, Modifier.size(18.dp)) },
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Delete", color = MaterialTheme.colorScheme.error) },
+                            onClick = { showMenu = false; onDelete() },
+                            leadingIcon = {
+                                Icon(
+                                    Icons.Default.Delete, null,
+                                    Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.error,
+                                )
+                            },
+                        )
+                    }
                 }
             }
         }

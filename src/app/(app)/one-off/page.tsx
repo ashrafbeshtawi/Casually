@@ -16,7 +16,7 @@ export default async function OneOffPage() {
 
   if (!oneOff) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
             <Zap className="text-primary h-5 w-5" />

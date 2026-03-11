@@ -97,7 +97,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
 
   if (error || !project) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto max-w-3xl space-y-6">
         <Link
           href="/"
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
@@ -116,7 +116,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
   const children = project.children ?? []
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       {/* Back navigation */}
       <Link
         href="/"
