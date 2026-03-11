@@ -22,6 +22,14 @@
             </intent-filter>
         </activity>
 
+        <activity
+            android:name=".widget.WidgetStatePickerActivity"
+            android:exported="false"
+            android:theme="@style/Theme.Casually.TransparentDialog"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:autoRemoveFromRecents="true" />
+
         <receiver
             android:name=".widget.CasuallyWidgetReceiver"
             android:exported="true"

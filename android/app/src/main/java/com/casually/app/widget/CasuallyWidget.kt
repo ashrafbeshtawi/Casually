@@ -1,16 +1,14 @@
 package com.casually.app.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
-import androidx.glance.action.ActionParameters
-import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
-import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.action.actionRunCallback
+import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.color.ColorProvider
 import androidx.glance.layout.*
@@ -53,14 +51,6 @@ private fun stateLabel(state: String?): String = when (state) {
     else -> "Active"
 }
 
-private fun nextState(current: String?): String = when (current) {
-    "ACTIVE" -> "WAITING"
-    "WAITING" -> "BLOCKED"
-    "BLOCKED" -> "DONE"
-    "DONE" -> "ACTIVE"
-    else -> "WAITING"
-}
-
 // Priority colors
 private val PriorityHighest = android.graphics.Color.parseColor("#EF4444")
 private val PriorityHigh = android.graphics.Color.parseColor("#F97316")
@@ -75,48 +65,6 @@ private fun priorityColor(priority: String?): Int = when (priority) {
     "LOW" -> PriorityLow
     "LOWEST" -> PriorityLowest
     else -> PriorityMedium
-}
-
-// Action parameter keys for state cycling
-private val ParamItemId = ActionParameters.Key<String>("item_id")
-private val ParamItemType = ActionParameters.Key<String>("item_type")
-private val ParamCurrentState = ActionParameters.Key<String>("current_state")
-
-class CycleStateAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        val id = parameters[ParamItemId] ?: return
-        val type = parameters[ParamItemType] ?: return
-        val currentState = parameters[ParamCurrentState] ?: return
-
-        val newState = nextState(currentState)
-        val sessionManager = SessionManager(context)
-        val token = sessionManager.sessionToken ?: return
-
-        val provider = WidgetDataProvider(context)
-
-        // Optimistic: mutate cache immediately and update widget
-        val cached = provider.loadFromCache()
-        if (cached != null) {
-            val optimistic = if (type == "long") {
-                cached.copy(projects = cached.projects.map {
-                    if (it.id == id) it.copy(state = newState) else it
-                })
-            } else {
-                cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
-                    tasks.map { if (it.id == id) it.copy(state = newState) else it }
-                })
-            }
-            provider.saveToCache(optimistic)
-            CasuallyWidget().updateAll(context)
-        }
-
-        // Fire API in background, then re-fetch and sync
-        val data = provider.changeState(BuildConfig.API_BASE_URL, token, id, type, newState)
-        if (data != null) {
-            provider.saveToCache(data)
-        }
-        CasuallyWidget().updateAll(context)
-    }
 }
 
 class CasuallyWidget : GlanceAppWidget() {
@@ -179,7 +127,7 @@ class CasuallyWidget : GlanceAppWidget() {
                             style = TextStyle(
                                 fontWeight = FontWeight.Bold,
                                 color = onSurfaceColor,
-                                fontSize = 16.sp,
+                                fontSize = 18.sp,
                             ),
                             modifier = GlanceModifier.defaultWeight(),
                         )
@@ -197,7 +145,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         color = whiteColor,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp,
+                                        fontSize = 18.sp,
                                     ),
                                 )
                             }
@@ -271,13 +219,14 @@ class CasuallyWidget : GlanceAppWidget() {
                                                         day = androidx.compose.ui.graphics.Color(projColor),
                                                         night = androidx.compose.ui.graphics.Color(projColor),
                                                     ))
-                                                    .padding(horizontal = 5.dp, vertical = 1.dp)
-                                                    .clickable(actionRunCallback<CycleStateAction>(
-                                                        actionParametersOf(
-                                                            ParamItemId to project.id,
-                                                            ParamItemType to "long",
-                                                            ParamCurrentState to (project.state ?: "ACTIVE"),
-                                                        )
+                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                                                    .clickable(actionStartActivityIntent(
+                                                        Intent(context, WidgetStatePickerActivity::class.java).apply {
+                                                            action = "STATE_PICK_${project.id}_long"
+                                                            putExtra("item_id", project.id)
+                                                            putExtra("item_type", "long")
+                                                            putExtra("current_state", project.state ?: "ACTIVE")
+                                                        },
                                                     )),
                                                 contentAlignment = Alignment.Center,
                                             ) {
@@ -285,7 +234,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                     stateLabel(project.state),
                                                     style = TextStyle(
                                                         color = whiteColor,
-                                                        fontSize = 10.sp,
+                                                        fontSize = 12.sp,
                                                         fontWeight = FontWeight.Medium,
                                                     ),
                                                 )
@@ -296,7 +245,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                 style = TextStyle(
                                                     fontWeight = FontWeight.Bold,
                                                     color = onSurfaceColor,
-                                                    fontSize = 14.sp,
+                                                    fontSize = 16.sp,
                                                 ),
                                                 modifier = GlanceModifier
                                                     .defaultWeight()
@@ -313,7 +262,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                         "$doneTasks/$totalTasks",
                                                         style = TextStyle(
                                                             color = whiteColor,
-                                                            fontSize = 11.sp,
+                                                            fontSize = 13.sp,
                                                             fontWeight = FontWeight.Medium,
                                                         ),
                                                     )
@@ -338,13 +287,14 @@ class CasuallyWidget : GlanceAppWidget() {
                                                             day = androidx.compose.ui.graphics.Color(taskColor),
                                                             night = androidx.compose.ui.graphics.Color(taskColor),
                                                         ))
-                                                        .padding(horizontal = 4.dp, vertical = 1.dp)
-                                                        .clickable(actionRunCallback<CycleStateAction>(
-                                                            actionParametersOf(
-                                                                ParamItemId to task.id,
-                                                                ParamItemType to "short",
-                                                                ParamCurrentState to (task.state ?: "ACTIVE"),
-                                                            )
+                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        .clickable(actionStartActivityIntent(
+                                                            Intent(context, WidgetStatePickerActivity::class.java).apply {
+                                                                action = "STATE_PICK_${task.id}_short"
+                                                                putExtra("item_id", task.id)
+                                                                putExtra("item_type", "short")
+                                                                putExtra("current_state", task.state ?: "ACTIVE")
+                                                            },
                                                         )),
                                                     contentAlignment = Alignment.Center,
                                                 ) {
@@ -352,7 +302,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                         stateLabel(task.state),
                                                         style = TextStyle(
                                                             color = whiteColor,
-                                                            fontSize = 9.sp,
+                                                            fontSize = 11.sp,
                                                             fontWeight = FontWeight.Medium,
                                                         ),
                                                     )
@@ -374,7 +324,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                                     "${task.emoji ?: ""} ${task.title}".trim(),
                                                     style = TextStyle(
                                                         color = mutedColor,
-                                                        fontSize = 13.sp,
+                                                        fontSize = 15.sp,
                                                     ),
                                                     modifier = GlanceModifier
                                                         .defaultWeight()
