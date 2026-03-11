@@ -22,9 +22,8 @@ import com.casually.app.BuildConfig
 import com.casually.app.data.SessionManager
 import com.casually.app.domain.model.TaskState
 import androidx.glance.appwidget.updateAll
+import androidx.lifecycle.lifecycleScope
 import androidx.work.*
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class WidgetStatePickerActivity : ComponentActivity() {
@@ -37,8 +36,10 @@ class WidgetStatePickerActivity : ComponentActivity() {
         if (action.startsWith("TOGGLE_COLLAPSE_")) {
             val projectId = intent.getStringExtra("project_id") ?: run { finish(); return }
             val currentCollapsed = intent.getBooleanExtra("current_collapsed", false)
-            performCollapseToggle(projectId, !currentCollapsed)
-            finish()
+            lifecycleScope.launch {
+                performCollapseToggle(projectId, !currentCollapsed)
+                finish()
+            }
             return
         }
 
@@ -61,15 +62,17 @@ class WidgetStatePickerActivity : ComponentActivity() {
                 currentState = currentState,
                 transitions = transitions,
                 onPick = { picked ->
-                    performStateChange(itemId, itemType, picked.name)
-                    finish()
+                    lifecycleScope.launch {
+                        performStateChange(itemId, itemType, picked.name)
+                        finish()
+                    }
                 },
                 onDismiss = { finish() },
             )
         }
     }
 
-    private fun performCollapseToggle(projectId: String, newCollapsed: Boolean) {
+    private suspend fun performCollapseToggle(projectId: String, newCollapsed: Boolean) {
         val provider = WidgetDataProvider(applicationContext)
 
         // Optimistic: mutate cache immediately and update widget
@@ -81,9 +84,7 @@ class WidgetStatePickerActivity : ComponentActivity() {
                 }
             )
             provider.saveToCache(optimistic)
-            CoroutineScope(Dispatchers.Main).launch {
-                CasuallyWidget().updateAll(applicationContext)
-            }
+            CasuallyWidget().updateAll(applicationContext)
         }
 
         // Fire background work that survives Activity destruction
@@ -99,7 +100,7 @@ class WidgetStatePickerActivity : ComponentActivity() {
         WorkManager.getInstance(applicationContext).enqueue(request)
     }
 
-    private fun performStateChange(id: String, type: String, newState: String) {
+    private suspend fun performStateChange(id: String, type: String, newState: String) {
         val provider = WidgetDataProvider(applicationContext)
 
         // Optimistic: mutate cache immediately and update widget
@@ -125,9 +126,7 @@ class WidgetStatePickerActivity : ComponentActivity() {
                 }
             }
             provider.saveToCache(optimistic)
-            CoroutineScope(Dispatchers.Main).launch {
-                CasuallyWidget().updateAll(applicationContext)
-            }
+            CasuallyWidget().updateAll(applicationContext)
         }
 
         // Fire background work that survives Activity destruction
