@@ -22,6 +22,7 @@ import com.casually.app.BuildConfig
 import com.casually.app.data.SessionManager
 import com.casually.app.domain.model.TaskState
 import androidx.glance.appwidget.updateAll
+import androidx.work.*
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -69,8 +70,6 @@ class WidgetStatePickerActivity : ComponentActivity() {
     }
 
     private fun performCollapseToggle(projectId: String, newCollapsed: Boolean) {
-        val sessionManager = SessionManager(applicationContext)
-        val token = sessionManager.sessionToken ?: return
         val provider = WidgetDataProvider(applicationContext)
 
         // Optimistic: mutate cache immediately and update widget
@@ -87,28 +86,23 @@ class WidgetStatePickerActivity : ComponentActivity() {
             }
         }
 
-        // Fire API in background, then re-fetch and sync
-        CoroutineScope(Dispatchers.IO).launch {
-            val data = provider.patchLongTask(
-                BuildConfig.API_BASE_URL, token, projectId,
-                """{"collapsed":$newCollapsed}"""
-            )
-            if (data != null) {
-                provider.saveToCache(data)
-            }
-            launch(Dispatchers.Main) {
-                CasuallyWidget().updateAll(applicationContext)
-            }
-        }
+        // Fire background work that survives Activity destruction
+        val workData = workDataOf(
+            "action" to "collapse",
+            "project_id" to projectId,
+            "collapsed" to newCollapsed,
+        )
+        val request = OneTimeWorkRequestBuilder<WidgetActionWorker>()
+            .setInputData(workData)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(request)
     }
 
     private fun performStateChange(id: String, type: String, newState: String) {
-        val sessionManager = SessionManager(applicationContext)
-        val token = sessionManager.sessionToken ?: return
         val provider = WidgetDataProvider(applicationContext)
 
         // Optimistic: mutate cache immediately and update widget
-        // Widget shows only active items, so non-active changes remove the item
         val cached = provider.loadFromCache()
         if (cached != null) {
             val optimistic = if (type == "long") {
@@ -136,16 +130,18 @@ class WidgetStatePickerActivity : ComponentActivity() {
             }
         }
 
-        // Fire API in background, then re-fetch and sync
-        CoroutineScope(Dispatchers.IO).launch {
-            val data = provider.changeState(BuildConfig.API_BASE_URL, token, id, type, newState)
-            if (data != null) {
-                provider.saveToCache(data)
-            }
-            launch(Dispatchers.Main) {
-                CasuallyWidget().updateAll(applicationContext)
-            }
-        }
+        // Fire background work that survives Activity destruction
+        val workData = workDataOf(
+            "action" to "state_change",
+            "item_id" to id,
+            "item_type" to type,
+            "new_state" to newState,
+        )
+        val request = OneTimeWorkRequestBuilder<WidgetActionWorker>()
+            .setInputData(workData)
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .build()
+        WorkManager.getInstance(applicationContext).enqueue(request)
     }
 }
 

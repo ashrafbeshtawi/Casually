@@ -34,6 +34,36 @@ class RoutinesViewModel @Inject constructor(
 
     init {
         refresh()
+        startAutoRefresh()
+    }
+
+    private fun startAutoRefresh() {
+        viewModelScope.launch {
+            while (true) {
+                delay(60 * 1000L) // 1 minute
+                silentRefresh()
+            }
+        }
+    }
+
+    private fun silentRefresh() {
+        viewModelScope.launch {
+            try {
+                val allProjects = taskRepository.getLongTasks()
+                val project = allProjects.find { it.title == "Routines" }
+                val tasks = if (project != null) {
+                    val detail = taskRepository.getLongTask(project.id)
+                    detail.children ?: emptyList()
+                } else {
+                    emptyList()
+                }
+                _uiState.value = _uiState.value.copy(
+                    projectId = project?.id,
+                    tasks = tasks,
+                    allProjects = allProjects,
+                )
+            } catch (_: Exception) {}
+        }
     }
 
     fun refresh() {

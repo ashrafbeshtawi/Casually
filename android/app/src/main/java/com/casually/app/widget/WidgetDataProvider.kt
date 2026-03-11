@@ -9,6 +9,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.util.concurrent.TimeUnit
 
 @JsonClass(generateAdapter = true)
 data class WidgetProject(
@@ -38,7 +39,11 @@ data class WidgetData(
 class WidgetDataProvider(private val context: Context) {
 
     private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(10, TimeUnit.SECONDS)
+        .readTimeout(10, TimeUnit.SECONDS)
+        .writeTimeout(10, TimeUnit.SECONDS)
+        .build()
 
     fun fetchData(baseUrl: String, sessionToken: String): WidgetData? {
         return try {

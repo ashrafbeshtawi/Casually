@@ -1,5 +1,6 @@
 package com.casually.app.ui.dashboard
 
+import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.casually.app.data.repository.TaskRepository
@@ -7,7 +8,9 @@ import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
+import com.casually.app.widget.WidgetRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,7 +33,12 @@ data class DashboardUiState(
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
+    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
+
+    private fun refreshWidget() {
+        WidgetRefreshWorker.refreshNow(appContext)
+    }
 
     private val _uiState = MutableStateFlow(DashboardUiState())
     val uiState = _uiState.asStateFlow()
@@ -43,7 +51,7 @@ class DashboardViewModel @Inject constructor(
     private fun startAutoRefresh() {
         viewModelScope.launch {
             while (true) {
-                delay(5 * 60 * 1000L) // 5 minutes
+                delay(60 * 1000L) // 1 minute
                 silentRefresh()
             }
         }
@@ -109,6 +117,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 taskRepository.updateLongTask(projectId, collapsed = wasExpanded)
+                refreshWidget()
             } catch (_: Exception) {}
         }
     }
@@ -235,6 +244,7 @@ class DashboardViewModel @Inject constructor(
             try {
                 taskRepository.updateLongTask(current.id, order = index - 1)
                 taskRepository.updateLongTask(other.id, order = index)
+                refreshWidget()
             } catch (_: Exception) { refresh() }
         }
     }
@@ -252,6 +262,7 @@ class DashboardViewModel @Inject constructor(
             try {
                 taskRepository.updateLongTask(current.id, order = index + 1)
                 taskRepository.updateLongTask(other.id, order = index)
+                refreshWidget()
             } catch (_: Exception) { refresh() }
         }
     }
@@ -274,6 +285,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 taskRepository.changeLongTaskState(projectId, state)
+                refreshWidget()
             } catch (_: Exception) { refresh() }
         }
     }
@@ -310,6 +322,7 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 taskRepository.deleteLongTask(projectId)
+                refreshWidget()
             } catch (_: Exception) { refresh() }
         }
     }
@@ -330,6 +343,7 @@ class DashboardViewModel @Inject constructor(
                 _uiState.value = _uiState.value.copy(projects = projects)
             } catch (_: Exception) {}
         }
+        refreshWidget()
     }
 
 }
