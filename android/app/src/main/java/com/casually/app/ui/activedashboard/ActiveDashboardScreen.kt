@@ -26,6 +26,7 @@ import com.casually.app.ui.theme.CasuallyPurple
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveDashboardScreen(
+    onCreateTask: (parentId: String) -> Unit,
     onEditTask: (ShortRunningTask, String) -> Unit,
     refreshTrigger: Int = 0,
     viewModel: ActiveDashboardViewModel = hiltViewModel(),
@@ -136,6 +137,12 @@ fun ActiveDashboardScreen(
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                             )
+                                        }
+                                        IconButton(
+                                            onClick = { onCreateTask(project.id) },
+                                            modifier = Modifier.size(32.dp),
+                                        ) {
+                                            Icon(Icons.Default.Add, "Add task", Modifier.size(18.dp))
                                         }
                                     }
                                 }

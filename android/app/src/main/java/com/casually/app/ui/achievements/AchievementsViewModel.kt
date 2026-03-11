@@ -11,10 +11,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+data class ProjectWithDoneTasks(
+    val projectId: String,
+    val projectTitle: String,
+    val projectEmoji: String?,
+    val tasks: List<ShortRunningTask>,
+)
+
 data class AchievementsUiState(
     val isLoading: Boolean = true,
     val doneProjects: List<LongRunningTask> = emptyList(),
-    val doneTasks: List<ShortRunningTask> = emptyList(),
+    val tasksByProject: List<ProjectWithDoneTasks> = emptyList(),
     val error: String? = null,
 )
 
@@ -36,10 +43,23 @@ class AchievementsViewModel @Inject constructor(
             try {
                 val doneProjects = taskRepository.getLongTasks(state = "DONE")
                 val doneTasks = taskRepository.getShortTasks(state = "DONE")
+
+                // Group tasks by parent project
+                val grouped = doneTasks.groupBy { it.parentId }
+                val tasksByProject = grouped.map { (parentId, tasks) ->
+                    val parent = tasks.firstOrNull()?.parent
+                    ProjectWithDoneTasks(
+                        projectId = parentId,
+                        projectTitle = parent?.title ?: "Unknown",
+                        projectEmoji = parent?.emoji,
+                        tasks = tasks,
+                    )
+                }
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     doneProjects = doneProjects,
-                    doneTasks = doneTasks,
+                    tasksByProject = tasksByProject,
                 )
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(

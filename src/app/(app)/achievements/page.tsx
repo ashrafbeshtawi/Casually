@@ -1,9 +1,9 @@
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
-import { type Priority, type TaskState } from '@/types'
+import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { TaskCard } from '@/components/task-card'
-import { Trophy, FolderKanban, ListChecks } from 'lucide-react'
+import { Trophy, FolderKanban } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -50,6 +50,10 @@ export default async function AchievementsPage() {
         _count: {
           select: { children: true },
         },
+        children: {
+          where: { state: 'DONE' },
+          orderBy: { updatedAt: 'desc' },
+        },
       },
       orderBy: { updatedAt: 'desc' },
     }),
@@ -66,6 +70,17 @@ export default async function AchievementsPage() {
       orderBy: { updatedAt: 'desc' },
     }),
   ])
+
+  // Group done tasks by their parent project
+  const tasksByProject = new Map<string, { parent: { id: string; title: string; emoji: string | null }; tasks: typeof doneShortRunning }>()
+  for (const task of doneShortRunning) {
+    const existing = tasksByProject.get(task.parent.id)
+    if (existing) {
+      existing.tasks.push(task)
+    } else {
+      tasksByProject.set(task.parent.id, { parent: task.parent, tasks: [task] })
+    }
+  }
 
   const hasAnyItems = doneLongRunning.length > 0 || doneShortRunning.length > 0
 
@@ -88,7 +103,7 @@ export default async function AchievementsPage() {
         </div>
       ) : (
         <>
-          {/* Projects (completed LongRunningTasks) */}
+          {/* Completed Projects */}
           {doneLongRunning.length > 0 && (
             <section className="space-y-4">
               <div className="flex items-center gap-2">
@@ -110,6 +125,7 @@ export default async function AchievementsPage() {
                         state={task.state as TaskState}
                         taskType="long"
                         hasChildren={task._count.children > 0}
+                        minimal
                         variant="compact"
                       />
                     </div>
@@ -122,43 +138,43 @@ export default async function AchievementsPage() {
             </section>
           )}
 
-          {/* Tasks (completed ShortRunningTasks) */}
-          {doneShortRunning.length > 0 && (
-            <section className="space-y-4">
-              <div className="flex items-center gap-2">
-                <ListChecks className="text-muted-foreground h-5 w-5" />
-                <h2 className="text-lg font-semibold">Tasks</h2>
-                <span className="text-muted-foreground text-sm">
-                  ({doneShortRunning.length})
-                </span>
-              </div>
-              <div className="grid gap-2">
-                {doneShortRunning.map((task) => {
-                  const parentLabel = task.parent.emoji
-                    ? `${task.parent.emoji} ${task.parent.title}`
-                    : task.parent.title
+          {/* Completed Tasks — grouped by project */}
+          {tasksByProject.size > 0 && (
+            <section className="space-y-6">
+              {Array.from(tasksByProject.values()).map(({ parent, tasks }) => {
+                const projectLabel = parent.emoji
+                  ? `${parent.emoji} ${parent.title}`
+                  : parent.title
 
-                  return (
-                    <div key={task.id} className="flex items-center gap-2">
-                      <div className="min-w-0 flex-1">
-                        <TaskCard
-                          id={task.id}
-                          title={task.title}
-                          description={parentLabel}
-                          emoji={task.emoji}
-                          priority={task.priority as Priority}
-                          state={task.state as TaskState}
-                          taskType="short"
-                          variant="compact"
-                        />
-                      </div>
-                      <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
-                        {formatCompletionDate(task.updatedAt)}
-                      </span>
+                return (
+                  <div key={parent.id} className="space-y-2">
+                    <h3 className="text-sm font-medium text-muted-foreground">
+                      {projectLabel}
+                    </h3>
+                    <div className="grid gap-1">
+                      {tasks.map((task) => (
+                        <div key={task.id} className="flex items-center gap-2">
+                          <div className="min-w-0 flex-1">
+                            <TaskCard
+                              id={task.id}
+                              title={task.title}
+                              emoji={task.emoji}
+                              priority={task.priority as Priority}
+                              state={task.state as TaskState}
+                              taskType="short"
+                              minimal
+                              variant="compact"
+                            />
+                          </div>
+                          <span className="text-muted-foreground hidden shrink-0 text-xs sm:block">
+                            {formatCompletionDate(task.updatedAt)}
+                          </span>
+                        </div>
+                      ))}
                     </div>
-                  )
-                })}
-              </div>
+                  </div>
+                )
+              })}
             </section>
           )}
         </>

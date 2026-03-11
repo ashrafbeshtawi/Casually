@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { TaskCard } from '@/components/task-card'
+import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { Loader2, FolderKanban, Zap, RefreshCw } from 'lucide-react'
 
 interface Project {
@@ -148,6 +149,11 @@ export function ActiveDashboard() {
                             ({children.length} active)
                           </span>
                         )}
+                        <CreateShortTermTaskDialog
+                          parentId={project.id}
+                          onCreated={fetchData}
+                          variant="icon"
+                        />
                       </div>
 
                       {/* Active subtasks */}

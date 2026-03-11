@@ -13,8 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.casually.app.domain.model.LongRunningTask
-import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,7 +32,7 @@ fun AchievementsScreen(
             isRefreshing = false,
             onRefresh = { viewModel.refresh() },
         ) {
-            val hasAnything = uiState.doneProjects.isNotEmpty() || uiState.doneTasks.isNotEmpty()
+            val hasAnything = uiState.doneProjects.isNotEmpty() || uiState.tasksByProject.isNotEmpty()
 
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -67,7 +65,7 @@ fun AchievementsScreen(
                     }
                 }
 
-                // Done projects
+                // Done projects (display-only)
                 if (uiState.doneProjects.isNotEmpty()) {
                     item(key = "projects-header") {
                         Text(
@@ -102,24 +100,25 @@ fun AchievementsScreen(
                                     style = MaterialTheme.typography.bodyMedium,
                                     modifier = Modifier.weight(1f),
                                 )
-                                StateBadge(project.state)
                             }
                         }
                     }
                 }
 
-                // Done tasks
-                if (uiState.doneTasks.isNotEmpty()) {
-                    item(key = "tasks-header") {
+                // Done tasks grouped by project (display-only)
+                uiState.tasksByProject.forEach { group ->
+                    val label = if (group.projectEmoji != null) "${group.projectEmoji} ${group.projectTitle}" else group.projectTitle
+
+                    item(key = "group-header-${group.projectId}") {
                         Text(
-                            "TASKS",
+                            label,
                             style = MaterialTheme.typography.labelMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
                         )
                     }
 
-                    items(uiState.doneTasks, key = { it.id }) { task ->
+                    items(group.tasks, key = { it.id }) { task ->
                         Card(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -138,21 +137,11 @@ fun AchievementsScreen(
                                     Text(task.emoji, style = MaterialTheme.typography.bodyMedium)
                                     Spacer(Modifier.width(8.dp))
                                 }
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Text(
-                                        task.title,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                    )
-                                    task.parent?.let { parent ->
-                                        val label = if (parent.emoji != null) "${parent.emoji} ${parent.title}" else parent.title
-                                        Text(
-                                            label,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        )
-                                    }
-                                }
-                                StateBadge(task.state)
+                                Text(
+                                    task.title,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    modifier = Modifier.weight(1f),
+                                )
                             }
                         }
                     }

@@ -101,7 +101,8 @@ fun AppNavigation(
                         BottomNavItem.entries.forEach { item ->
                             NavigationBarItem(
                                 icon = { Icon(item.icon, item.label) },
-                                label = { Text(item.label, style = MaterialTheme.typography.labelSmall) },
+                                label = {},
+                                alwaysShowLabel = false,
                                 selected = currentRoute == item.route,
                                 onClick = {
                                     bottomNavController.navigate(item.route) {
@@ -124,6 +125,7 @@ fun AppNavigation(
                 ) {
                     composable(BottomNavItem.Dashboard.route) {
                         ActiveDashboardScreen(
+                            onCreateTask = { parentId -> showCreateTask = parentId },
                             onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
