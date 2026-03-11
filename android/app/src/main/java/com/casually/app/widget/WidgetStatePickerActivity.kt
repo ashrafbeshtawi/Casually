@@ -18,8 +18,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
-import com.casually.app.BuildConfig
-import com.casually.app.data.SessionManager
 import com.casually.app.domain.model.TaskState
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.lifecycleScope
@@ -30,18 +28,6 @@ class WidgetStatePickerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        // Handle collapse toggle — no UI, just toggle and finish
-        val action = intent.action ?: ""
-        if (action.startsWith("TOGGLE_COLLAPSE_")) {
-            val projectId = intent.getStringExtra("project_id") ?: run { finish(); return }
-            val currentCollapsed = intent.getBooleanExtra("current_collapsed", false)
-            lifecycleScope.launch {
-                performCollapseToggle(projectId, !currentCollapsed)
-                finish()
-            }
-            return
-        }
 
         val itemId = intent.getStringExtra("item_id") ?: run { finish(); return }
         val itemType = intent.getStringExtra("item_type") ?: run { finish(); return }
@@ -70,34 +56,6 @@ class WidgetStatePickerActivity : ComponentActivity() {
                 onDismiss = { finish() },
             )
         }
-    }
-
-    private suspend fun performCollapseToggle(projectId: String, newCollapsed: Boolean) {
-        val provider = WidgetDataProvider(applicationContext)
-
-        // Optimistic: mutate cache immediately and update widget
-        val cached = provider.loadFromCache()
-        if (cached != null) {
-            val optimistic = cached.copy(
-                projects = cached.projects.map {
-                    if (it.id == projectId) it.copy(collapsed = newCollapsed) else it
-                }
-            )
-            provider.saveToCache(optimistic)
-            CasuallyWidget().updateAll(applicationContext)
-        }
-
-        // Fire background work that survives Activity destruction
-        val workData = workDataOf(
-            "action" to "collapse",
-            "project_id" to projectId,
-            "collapsed" to newCollapsed,
-        )
-        val request = OneTimeWorkRequestBuilder<WidgetActionWorker>()
-            .setInputData(workData)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(applicationContext).enqueue(request)
     }
 
     private suspend fun performStateChange(id: String, type: String, newState: String) {

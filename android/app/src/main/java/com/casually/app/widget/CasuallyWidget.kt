@@ -5,9 +5,12 @@ import android.content.Intent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.*
+import androidx.glance.action.ActionParameters
+import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
+import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.lazy.LazyColumn
 import androidx.glance.color.ColorProvider
@@ -188,12 +191,11 @@ class CasuallyWidget : GlanceAppWidget() {
                                         Row(
                                             modifier = GlanceModifier
                                                 .fillMaxWidth()
-                                                .clickable(actionStartActivityIntent(
-                                                    Intent(context, WidgetStatePickerActivity::class.java).apply {
-                                                        action = "TOGGLE_COLLAPSE_${project.id}"
-                                                        putExtra("project_id", project.id)
-                                                        putExtra("current_collapsed", isCollapsed)
-                                                    },
+                                                .clickable(actionRunCallback<CollapseActionCallback>(
+                                                    actionParametersOf(
+                                                        CollapseActionCallback.ProjectIdKey to project.id,
+                                                        CollapseActionCallback.CurrentCollapsedKey to isCollapsed,
+                                                    )
                                                 )),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
