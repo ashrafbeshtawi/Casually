@@ -44,6 +44,7 @@ fun AppNavigation(
     taskRepository: TaskRepository,
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
+    initialProjectId: String? = null,
 ) {
     val navController = rememberNavController()
     val startRoute = if (authRepository.isLoggedIn) "main" else "login"
@@ -67,6 +68,13 @@ fun AppNavigation(
 
     // Settings navigation state
     var showSettings by remember { mutableStateOf(false) }
+
+    // Deep link: navigate to project detail if launched with a project_id
+    LaunchedEffect(initialProjectId) {
+        if (initialProjectId != null && authRepository.isLoggedIn) {
+            navController.navigate("project/$initialProjectId")
+        }
+    }
 
     NavHost(navController = navController, startDestination = startRoute) {
         composable("login") {

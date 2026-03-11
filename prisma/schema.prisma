@@ -78,6 +78,7 @@ model LongRunningTask {
   priority    Priority  @default(MEDIUM)
   state       TaskState @default(WAITING)
   order       Int       @default(0)
+  collapsed   Boolean   @default(false)
 
   blockedById String?
   blockedBy   LongRunningTask?  @relation("LongBlocksLong", fields: [blockedById], references: [id])

@@ -34,8 +34,9 @@ class TaskRepository @Inject constructor(
         emoji: String? = null,
         priority: String? = null,
         order: Int? = null,
+        collapsed: Boolean? = null,
     ): LongRunningTask = api.updateLongTask(
-        id, UpdateTaskRequest(title, description, emoji, priority, order)
+        id, UpdateTaskRequest(title, description, emoji, priority, order, collapsed)
     )
 
     suspend fun deleteLongTask(id: String) { api.deleteLongTask(id) }

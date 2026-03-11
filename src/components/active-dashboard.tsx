@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
-import { Loader2, FolderKanban, Zap, RefreshCw } from 'lucide-react'
+import { Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 
 interface Project {
   id: string
@@ -13,6 +13,7 @@ interface Project {
   emoji: string | null
   priority: Priority
   state: TaskState
+  collapsed: boolean
   _count: { children: number }
   children?: Task[]
 }
@@ -29,8 +30,6 @@ interface Task {
   blockedById: string | null
   blockedBy?: { id: string; title: string; emoji: string | null } | null
 }
-
-const SPECIAL_TITLES = ['One-Off Tasks', 'Routines']
 
 export function ActiveDashboard() {
   const [projects, setProjects] = useState<Project[]>([])
@@ -64,6 +63,26 @@ export function ActiveDashboard() {
     fetchData()
   }, [fetchData])
 
+  async function handleToggleCollapse(projectId: string) {
+    const project = projects.find((p) => p.id === projectId)
+    if (!project) return
+    const newCollapsed = !project.collapsed
+    setProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, collapsed: newCollapsed } : p))
+    )
+    try {
+      await fetch(`/api/tasks/long/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collapsed: newCollapsed }),
+      })
+    } catch {
+      setProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, collapsed: !newCollapsed } : p))
+      )
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -80,11 +99,6 @@ export function ActiveDashboard() {
     )
   }
 
-  // Separate special projects from regular ones
-  const oneOffProject = projects.find((p) => p.title === 'One-Off Tasks')
-  const routinesProject = projects.find((p) => p.title === 'Routines')
-  const allRegularProjects = projects.filter((p) => !SPECIAL_TITLES.includes(p.title))
-
   // Group active short tasks by parent
   const tasksByParent = new Map<string, Task[]>()
   for (const task of activeShortTasks) {
@@ -93,168 +107,83 @@ export function ActiveDashboard() {
     tasksByParent.set(task.parentId, list)
   }
 
-  const oneOffTasks = oneOffProject ? (tasksByParent.get(oneOffProject.id) ?? []) : []
-  const routineTasks = routinesProject ? (tasksByParent.get(routinesProject.id) ?? []) : []
-
-  // Only show projects that have at least one active subtask
-  const regularProjects = allRegularProjects.filter(
+  // Show projects that have at least one active subtask, in server order
+  const visibleProjects = projects.filter(
     (p) => (tasksByParent.get(p.id) ?? []).length > 0
   )
 
-  const hasProjects = regularProjects.length > 0
-  const hasOneOffs = oneOffTasks.length > 0
-  const hasRoutines = routineTasks.length > 0
-  const hasAnything = hasProjects || hasOneOffs || hasRoutines
-
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      {!hasAnything ? (
+    <div className="mx-auto max-w-3xl space-y-3">
+      {visibleProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
           <p className="text-muted-foreground text-sm">
             No active items. Everything is either waiting or done!
           </p>
         </div>
       ) : (
-        <>
-          {/* Active Projects with their active subtasks */}
-          {hasProjects && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <FolderKanban className="text-muted-foreground h-4 w-4" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Projects
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {regularProjects.map((project) => {
-                  const children = tasksByParent.get(project.id) ?? []
-                  const borderColor = PRIORITY_COLORS[project.priority]
+        visibleProjects.map((project) => {
+          const children = tasksByParent.get(project.id) ?? []
+          const borderColor = PRIORITY_COLORS[project.priority]
 
-                  return (
-                    <div
-                      key={project.id}
-                      className="bg-card text-card-foreground rounded-lg border shadow-sm border-l-[3px]"
-                      style={{ borderLeftColor: borderColor }}
-                    >
-                      {/* Project header */}
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        {project.emoji && (
-                          <span className="shrink-0 text-sm">{project.emoji}</span>
-                        )}
-                        <span className="truncate text-sm font-medium">
-                          {project.title}
-                        </span>
-                        {children.length > 0 && (
-                          <span className="text-muted-foreground text-xs">
-                            ({children.length} active)
-                          </span>
-                        )}
-                        <CreateShortTermTaskDialog
-                          parentId={project.id}
-                          onCreated={fetchData}
-                          variant="icon"
-                        />
-                      </div>
-
-                      {/* Active subtasks */}
-                      {children.length > 0 && (
-                        <div className="border-t px-2 py-1.5 space-y-0.5">
-                          {children.map((task) => (
-                            <TaskCard
-                              key={task.id}
-                              id={task.id}
-                              title={task.title}
-                              emoji={task.emoji}
-                              priority={task.priority}
-                              state={task.state}
-                              taskType="short"
-                              parentId={task.parentId}
-                              onActionComplete={fetchData}
-                              hideEdit
-                              variant="compact"
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Active one-off tasks */}
-          {(hasOneOffs || oneOffProject) && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Zap className="text-muted-foreground h-4 w-4" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  One-Off Tasks
-                </h2>
-                {oneOffProject && (
+          return (
+            <div
+              key={project.id}
+              className="bg-card text-card-foreground rounded-lg border shadow-sm border-l-[3px]"
+              style={{ borderLeftColor: borderColor }}
+            >
+              {/* Project header */}
+              <div
+                className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
+                onClick={() => handleToggleCollapse(project.id)}
+              >
+                {project.collapsed ? (
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                )}
+                {project.emoji && (
+                  <span className="shrink-0 text-sm">{project.emoji}</span>
+                )}
+                <span className="truncate text-sm font-medium">
+                  {project.title}
+                </span>
+                {children.length > 0 && (
+                  <span className="text-muted-foreground text-xs">
+                    ({children.length} active)
+                  </span>
+                )}
+                <div onClick={(e) => e.stopPropagation()}>
                   <CreateShortTermTaskDialog
-                    parentId={oneOffProject.id}
+                    parentId={project.id}
                     onCreated={fetchData}
                     variant="icon"
                   />
-                )}
+                </div>
               </div>
-              <div className="space-y-0.5">
-                {oneOffTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    id={task.id}
-                    title={task.title}
-                    emoji={task.emoji}
-                    priority={task.priority}
-                    state={task.state}
-                    taskType="short"
-                    parentId={task.parentId}
-                    onActionComplete={fetchData}
-                    hideEdit
-                    variant="compact"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
 
-          {/* Active routines */}
-          {(hasRoutines || routinesProject) && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <RefreshCw className="text-muted-foreground h-4 w-4" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Routines
-                </h2>
-                {routinesProject && (
-                  <CreateShortTermTaskDialog
-                    parentId={routinesProject.id}
-                    onCreated={fetchData}
-                    variant="icon"
-                  />
-                )}
-              </div>
-              <div className="space-y-0.5">
-                {routineTasks.map((task) => (
-                  <TaskCard
-                    key={task.id}
-                    id={task.id}
-                    title={task.title}
-                    emoji={task.emoji}
-                    priority={task.priority}
-                    state={task.state}
-                    taskType="short"
-                    parentId={task.parentId}
-                    onActionComplete={fetchData}
-                    hideEdit
-                    variant="compact"
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-        </>
+              {/* Active subtasks */}
+              {!project.collapsed && children.length > 0 && (
+                <div className="border-t px-2 py-1.5 space-y-0.5">
+                  {children.map((task) => (
+                    <TaskCard
+                      key={task.id}
+                      id={task.id}
+                      title={task.title}
+                      emoji={task.emoji}
+                      priority={task.priority}
+                      state={task.state}
+                      taskType="short"
+                      parentId={task.parentId}
+                      onActionComplete={fetchData}
+                      hideEdit
+                      variant="compact"
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })
       )}
     </div>
   )

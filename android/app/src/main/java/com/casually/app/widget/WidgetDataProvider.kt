@@ -17,6 +17,7 @@ data class WidgetProject(
     val emoji: String?,
     val priority: String? = null,
     val state: String? = null,
+    val collapsed: Boolean? = false,
 )
 
 @JsonClass(generateAdapter = true)
@@ -86,6 +87,25 @@ class WidgetDataProvider(private val context: Context) {
             response.close()
 
             // Re-fetch all data after state change
+            fetchData(baseUrl, sessionToken)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    /**
+     * PATCH a single field on a long task and re-fetch all data.
+     */
+    fun patchLongTask(baseUrl: String, sessionToken: String, id: String, jsonBody: String): WidgetData? {
+        return try {
+            val body = jsonBody.toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$baseUrl/api/tasks/long/$id")
+                .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
+                .patch(body)
+                .build()
+            val response = client.newCall(request).execute()
+            response.close()
             fetchData(baseUrl, sessionToken)
         } catch (e: Exception) {
             null

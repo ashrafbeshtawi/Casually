@@ -59,7 +59,7 @@ fun DashboardScreen(
     val filtered = if (uiState.projectStateFilter == "ALL") {
         uiState.projects
     } else {
-        uiState.projects.filter { it.state.name == uiState.projectStateFilter }
+        uiState.projects.filter { it.id in uiState.recentlyChangedProjectIds || it.state.name == uiState.projectStateFilter }
     }
 
     Box {
@@ -115,7 +115,7 @@ fun DashboardScreen(
                     }
 
                     // Project sections
-                    filtered.forEach { project ->
+                    filtered.forEachIndexed { index, project ->
                         val isExpanded = uiState.expandedProjects.contains(project.id)
                         val isProtected = project.title in PROTECTED_TITLES
                         val childCount = project.count?.children ?: 0
@@ -125,7 +125,7 @@ fun DashboardScreen(
                         val filteredChildren = if (uiState.taskStateFilter == "ALL") {
                             allChildren
                         } else {
-                            allChildren.filter { it.state.name == uiState.taskStateFilter }
+                            allChildren.filter { it.id in uiState.recentlyChangedTaskIds || it.state.name == uiState.taskStateFilter }
                         }
 
                         // Project header
@@ -135,12 +135,16 @@ fun DashboardScreen(
                                 isExpanded = isExpanded,
                                 childCount = childCount,
                                 isProtected = isProtected,
+                                isFirst = index == 0,
+                                isLast = index == filtered.size - 1,
                                 onToggle = { viewModel.toggleProject(project.id) },
                                 onAddTask = { onCreateTask(project.id) },
                                 onChangeState = { newState -> viewModel.changeProjectState(project.id, newState.name) },
                                 onChangePriority = { newPriority -> viewModel.changeProjectPriority(project.id, newPriority.name) },
                                 onEdit = { onEditProject(project) },
                                 onDelete = { deleteConfirm = Triple(project.id, project.title, true) },
+                                onMoveUp = { viewModel.moveProjectUp(project.id) },
+                                onMoveDown = { viewModel.moveProjectDown(project.id) },
                             )
                         }
 

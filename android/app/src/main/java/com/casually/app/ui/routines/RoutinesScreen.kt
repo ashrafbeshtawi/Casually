@@ -54,7 +54,8 @@ fun RoutinesScreen(
                     Spacer(Modifier.height(8.dp))
                 }
 
-                val filtered = viewModel.filteredTasks
+                val filtered = if (uiState.stateFilter == "ALL") uiState.tasks
+                    else uiState.tasks.filter { it.id in uiState.recentlyChangedIds || it.state.name == uiState.stateFilter }
 
                 if (filtered.isEmpty()) {
                     item(key = "empty") {

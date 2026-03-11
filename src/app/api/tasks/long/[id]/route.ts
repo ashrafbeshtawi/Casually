@@ -42,7 +42,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const body = await request.json()
-  const { title, description, emoji, priority, order } = body
+  const { title, description, emoji, priority, order, collapsed } = body
 
   if (priority) {
     const valid = ["HIGHEST", "HIGH", "MEDIUM", "LOW", "LOWEST"]
@@ -62,6 +62,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   if (emoji !== undefined) data.emoji = emoji?.trim() || null
   if (priority !== undefined) data.priority = priority
   if (order !== undefined) data.order = order
+  if (collapsed !== undefined) data.collapsed = collapsed
 
   const task = await prisma.longRunningTask.update({ where: { id }, data })
   return NextResponse.json(task)

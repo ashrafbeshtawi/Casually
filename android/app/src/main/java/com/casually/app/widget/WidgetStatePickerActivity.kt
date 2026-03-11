@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
 import com.casually.app.BuildConfig
 import com.casually.app.data.SessionManager
@@ -30,9 +31,20 @@ class WidgetStatePickerActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Handle collapse toggle — no UI, just toggle and finish
+        val action = intent.action ?: ""
+        if (action.startsWith("TOGGLE_COLLAPSE_")) {
+            val projectId = intent.getStringExtra("project_id") ?: run { finish(); return }
+            val currentCollapsed = intent.getBooleanExtra("current_collapsed", false)
+            performCollapseToggle(projectId, !currentCollapsed)
+            finish()
+            return
+        }
+
         val itemId = intent.getStringExtra("item_id") ?: run { finish(); return }
         val itemType = intent.getStringExtra("item_type") ?: run { finish(); return }
         val currentStateStr = intent.getStringExtra("current_state") ?: run { finish(); return }
+        val itemName = intent.getStringExtra("item_name")
 
         val currentState = try {
             TaskState.valueOf(currentStateStr)
@@ -44,6 +56,7 @@ class WidgetStatePickerActivity : ComponentActivity() {
 
         setContent {
             StatePickerDialog(
+                itemName = itemName,
                 currentState = currentState,
                 transitions = transitions,
                 onPick = { picked ->
@@ -55,7 +68,7 @@ class WidgetStatePickerActivity : ComponentActivity() {
         }
     }
 
-    private fun performStateChange(id: String, type: String, newState: String) {
+    private fun performCollapseToggle(projectId: String, newCollapsed: Boolean) {
         val sessionManager = SessionManager(applicationContext)
         val token = sessionManager.sessionToken ?: return
         val provider = WidgetDataProvider(applicationContext)
@@ -63,14 +76,59 @@ class WidgetStatePickerActivity : ComponentActivity() {
         // Optimistic: mutate cache immediately and update widget
         val cached = provider.loadFromCache()
         if (cached != null) {
+            val optimistic = cached.copy(
+                projects = cached.projects.map {
+                    if (it.id == projectId) it.copy(collapsed = newCollapsed) else it
+                }
+            )
+            provider.saveToCache(optimistic)
+            CoroutineScope(Dispatchers.Main).launch {
+                CasuallyWidget().updateAll(applicationContext)
+            }
+        }
+
+        // Fire API in background, then re-fetch and sync
+        CoroutineScope(Dispatchers.IO).launch {
+            val data = provider.patchLongTask(
+                BuildConfig.API_BASE_URL, token, projectId,
+                """{"collapsed":$newCollapsed}"""
+            )
+            if (data != null) {
+                provider.saveToCache(data)
+            }
+            launch(Dispatchers.Main) {
+                CasuallyWidget().updateAll(applicationContext)
+            }
+        }
+    }
+
+    private fun performStateChange(id: String, type: String, newState: String) {
+        val sessionManager = SessionManager(applicationContext)
+        val token = sessionManager.sessionToken ?: return
+        val provider = WidgetDataProvider(applicationContext)
+
+        // Optimistic: mutate cache immediately and update widget
+        // Widget shows only active items, so non-active changes remove the item
+        val cached = provider.loadFromCache()
+        if (cached != null) {
             val optimistic = if (type == "long") {
-                cached.copy(projects = cached.projects.map {
-                    if (it.id == id) it.copy(state = newState) else it
-                })
+                if (newState != "ACTIVE") {
+                    cached.copy(projects = cached.projects.filter { it.id != id })
+                } else {
+                    cached.copy(projects = cached.projects.map {
+                        if (it.id == id) it.copy(state = newState) else it
+                    })
+                }
             } else {
-                cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
-                    tasks.map { if (it.id == id) it.copy(state = newState) else it }
-                })
+                if (newState != "ACTIVE") {
+                    cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
+                        tasks.filter { it.id != id }
+                    })
+                } else {
+                    cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
+                        tasks.map { if (it.id == id) it.copy(state = newState) else it }
+                    })
+                }
             }
             provider.saveToCache(optimistic)
             CoroutineScope(Dispatchers.Main).launch {
@@ -91,20 +149,23 @@ class WidgetStatePickerActivity : ComponentActivity() {
     }
 }
 
-private val StateActiveColor = Color(0xFF22C55E)
-private val StateWaitingColor = Color(0xFFEAB308)
-private val StateBlockedColor = Color(0xFFEF4444)
-private val StateDoneColor = Color(0xFF6B7280)
+private fun stateEmoji(state: TaskState): String = when (state) {
+    TaskState.ACTIVE -> "\u26A1"
+    TaskState.WAITING -> "\u23F3"
+    TaskState.BLOCKED -> "\uD83D\uDEAB"
+    TaskState.DONE -> "\u2705"
+}
 
-private fun stateDisplayColor(state: TaskState): Color = when (state) {
-    TaskState.ACTIVE -> StateActiveColor
-    TaskState.WAITING -> StateWaitingColor
-    TaskState.BLOCKED -> StateBlockedColor
-    TaskState.DONE -> StateDoneColor
+private fun stateDescription(state: TaskState): String = when (state) {
+    TaskState.ACTIVE -> "Actively being worked on"
+    TaskState.WAITING -> "Waiting for something"
+    TaskState.BLOCKED -> "Cannot proceed right now"
+    TaskState.DONE -> "Completed"
 }
 
 @Composable
 private fun StatePickerDialog(
+    itemName: String?,
     currentState: TaskState,
     transitions: List<TaskState>,
     onPick: (TaskState) -> Unit,
@@ -119,68 +180,95 @@ private fun StatePickerDialog(
                 indication = null,
                 interactionSource = remember { MutableInteractionSource() },
             ) { onDismiss() },
-        contentAlignment = Alignment.Center,
+        contentAlignment = Alignment.BottomCenter,
     ) {
-        // Dialog card — stop clicks from passing through to scrim
+        // Bottom-sheet style card
         Card(
             modifier = Modifier
-                .widthIn(max = 280.dp)
+                .fillMaxWidth()
+                .padding(16.dp)
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
                 ) { /* consume click */ },
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface,
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         ) {
             Column(
-                modifier = Modifier.padding(20.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(16.dp),
             ) {
-                Text(
-                    "Change State",
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                    ),
-                )
-
-                Spacer(modifier = Modifier.height(4.dp))
-
-                Text(
-                    "Currently: ${currentState.label}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // State pill buttons
-                transitions.forEach { state ->
-                    val bgColor = stateDisplayColor(state)
-                    Button(
-                        onClick = { onPick(state) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = bgColor,
-                            contentColor = Color.White,
-                        ),
-                    ) {
+                // Current state header
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        stateEmoji(currentState),
+                        fontSize = 20.sp,
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        if (!itemName.isNullOrBlank()) {
+                            Text(
+                                itemName,
+                                style = MaterialTheme.typography.titleMedium.copy(
+                                    fontWeight = FontWeight.Bold,
+                                ),
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         Text(
-                            state.label,
-                            fontSize = 15.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            "Currently: ${currentState.label}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
 
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+
+                // State options
+                transitions.forEach { state ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onPick(state) }
+                            .padding(vertical = 14.dp, horizontal = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            stateEmoji(state),
+                            fontSize = 24.sp,
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        Column {
+                            Text(
+                                state.label,
+                                style = MaterialTheme.typography.bodyLarge.copy(
+                                    fontWeight = FontWeight.Medium,
+                                ),
+                            )
+                            Text(
+                                stateDescription(state),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                }
+
                 Spacer(modifier = Modifier.height(8.dp))
 
-                TextButton(onClick = onDismiss) {
+                // Cancel button
+                TextButton(
+                    onClick = onDismiss,
+                    modifier = Modifier.align(Alignment.CenterHorizontally),
+                ) {
                     Text("Cancel")
                 }
             }

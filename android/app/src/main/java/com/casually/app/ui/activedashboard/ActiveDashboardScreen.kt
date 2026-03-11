@@ -1,5 +1,7 @@
 package com.casually.app.ui.activedashboard
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,10 +20,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
-import com.casually.app.ui.theme.CasuallyPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -61,15 +61,11 @@ fun ActiveDashboardScreen(
             isRefreshing = false,
             onRefresh = { viewModel.refresh() },
         ) {
-            val hasAnything = uiState.activeProjects.isNotEmpty() ||
-                    uiState.oneOffTasks.isNotEmpty() ||
-                    uiState.routineTasks.isNotEmpty()
-
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                if (!hasAnything) {
+                if (uiState.activeProjects.isEmpty()) {
                     item(key = "empty") {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
@@ -84,72 +80,73 @@ fun ActiveDashboardScreen(
                     }
                 }
 
-                // Active Projects section
-                if (uiState.activeProjects.isNotEmpty()) {
-                    item(key = "projects-header") {
-                        Text(
-                            "PROJECTS",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                        )
-                    }
+                // All projects in server order
+                uiState.activeProjects.forEach { project ->
+                    val children = uiState.childrenByProject[project.id] ?: emptyList()
+                    val isCollapsed = uiState.collapsedProjects.contains(project.id)
 
-                    uiState.activeProjects.forEach { project ->
-                        val children = uiState.childrenByProject[project.id] ?: emptyList()
-
-                        item(key = "project-${project.id}") {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .drawBehind {
-                                        drawLine(
-                                            color = project.priority.color,
-                                            start = Offset(0f, 0f),
-                                            end = Offset(0f, size.height),
-                                            strokeWidth = 8f,
-                                        )
-                                    },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = if (children.isEmpty()) 10.dp else 4.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        if (project.emoji != null) {
-                                            Text(project.emoji, style = MaterialTheme.typography.titleMedium)
-                                            Spacer(Modifier.width(6.dp))
-                                        }
+                    item(key = "project-${project.id}") {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .drawBehind {
+                                    drawLine(
+                                        color = project.priority.color,
+                                        start = Offset(0f, 0f),
+                                        end = Offset(0f, size.height),
+                                        strokeWidth = 8f,
+                                    )
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        ) {
+                            Column(modifier = Modifier.animateContentSize()) {
+                                Row(
+                                    modifier = Modifier
+                                        .clickable { viewModel.toggleProjectCollapse(project.id) }
+                                        .padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = if (!isCollapsed && children.isNotEmpty()) 4.dp else 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        if (isCollapsed) Icons.Default.KeyboardArrowRight else Icons.Default.KeyboardArrowDown,
+                                        contentDescription = if (isCollapsed) "Expand" else "Collapse",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    if (project.emoji != null) {
+                                        Text(project.emoji, style = MaterialTheme.typography.titleMedium)
+                                        Spacer(Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        project.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (children.isNotEmpty()) {
                                         Text(
-                                            project.title,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            modifier = Modifier.weight(1f),
+                                            "${children.size} active",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
-                                        if (children.isNotEmpty()) {
-                                            Text(
-                                                "${children.size} active",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                        IconButton(
-                                            onClick = { onCreateTask(project.id) },
-                                            modifier = Modifier.size(32.dp),
-                                        ) {
-                                            Icon(Icons.Default.Add, "Add task", Modifier.size(18.dp))
-                                        }
+                                    }
+                                    IconButton(
+                                        onClick = { onCreateTask(project.id) },
+                                        modifier = Modifier.size(32.dp),
+                                    ) {
+                                        Icon(Icons.Default.Add, "Add task", Modifier.size(18.dp))
                                     }
                                 }
                             }
                         }
+                    }
 
-                        // Active children under each project
+                    // Active children — only when expanded
+                    if (!isCollapsed) {
                         items(children, key = { it.id }) { task ->
                             TaskRow(
                                 task = task,
@@ -160,80 +157,6 @@ fun ActiveDashboardScreen(
                                 onMove = { moveDialogTarget = Pair(task.id, project.id) },
                             )
                         }
-                    }
-                }
-
-                // One-Off Tasks section
-                if (uiState.oneOffTasks.isNotEmpty() || uiState.oneOffProjectId != null) {
-                    item(key = "oneoffs-header") {
-                        Row(
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "ONE-OFF TASKS",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f),
-                            )
-                            uiState.oneOffProjectId?.let { pid ->
-                                IconButton(
-                                    onClick = { onCreateTask(pid) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(Icons.Default.Add, "Add one-off task", Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    items(uiState.oneOffTasks, key = { it.id }) { task ->
-                        val parentId = uiState.oneOffProjectId ?: task.parentId
-                        TaskRow(
-                            task = task,
-                            showEdit = false,
-                            onChangeState = { newState -> viewModel.changeTaskState(task.id, parentId, newState.name) },
-                            onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, parentId, newPriority.name) },
-                            onDelete = { deleteConfirm = Triple(task.id, task.title, parentId) },
-                            onMove = { moveDialogTarget = Pair(task.id, parentId) },
-                        )
-                    }
-                }
-
-                // Routines section
-                if (uiState.routineTasks.isNotEmpty() || uiState.routinesProjectId != null) {
-                    item(key = "routines-header") {
-                        Row(
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                "ROUTINES",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.weight(1f),
-                            )
-                            uiState.routinesProjectId?.let { pid ->
-                                IconButton(
-                                    onClick = { onCreateTask(pid) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(Icons.Default.Add, "Add routine", Modifier.size(18.dp))
-                                }
-                            }
-                        }
-                    }
-
-                    items(uiState.routineTasks, key = { it.id }) { task ->
-                        val parentId = uiState.routinesProjectId ?: task.parentId
-                        TaskRow(
-                            task = task,
-                            showEdit = false,
-                            onChangeState = { newState -> viewModel.changeTaskState(task.id, parentId, newState.name) },
-                            onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, parentId, newPriority.name) },
-                            onDelete = { deleteConfirm = Triple(task.id, task.title, parentId) },
-                            onMove = { moveDialogTarget = Pair(task.id, parentId) },
-                        )
                     }
                 }
             }

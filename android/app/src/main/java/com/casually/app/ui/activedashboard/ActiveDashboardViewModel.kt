@@ -8,6 +8,7 @@ import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -17,15 +18,10 @@ data class ActiveDashboardUiState(
     val isLoading: Boolean = true,
     val activeProjects: List<LongRunningTask> = emptyList(),
     val childrenByProject: Map<String, List<ShortRunningTask>> = emptyMap(),
-    val oneOffTasks: List<ShortRunningTask> = emptyList(),
-    val routineTasks: List<ShortRunningTask> = emptyList(),
-    val oneOffProjectId: String? = null,
-    val routinesProjectId: String? = null,
+    val collapsedProjects: Set<String> = emptySet(),
     val allProjects: List<LongRunningTask> = emptyList(),
     val error: String? = null,
 )
-
-private val SPECIAL_TITLES = listOf("One-Off Tasks", "Routines")
 
 @HiltViewModel
 class ActiveDashboardViewModel @Inject constructor(
@@ -44,29 +40,26 @@ class ActiveDashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val allProjects = taskRepository.getLongTasks()
-                val allActiveProjects = allProjects.filter { it.state == TaskState.ACTIVE && it.title !in SPECIAL_TITLES }
-
-                val oneOffProject = allProjects.find { it.title == "One-Off Tasks" }
-                val routinesProject = allProjects.find { it.title == "Routines" }
 
                 val activeTasks = taskRepository.getShortTasks(state = "ACTIVE")
                 val tasksByParent = activeTasks.groupBy { it.parentId }
 
-                // Only include projects that have at least one active subtask
-                val activeProjects = allActiveProjects.filter { (tasksByParent[it.id] ?: emptyList()).isNotEmpty() }
+                // All active projects that have at least one active subtask, in server order
+                val activeProjects = allProjects.filter {
+                    it.state == TaskState.ACTIVE && (tasksByParent[it.id] ?: emptyList()).isNotEmpty()
+                }
 
                 val childrenByProject = activeProjects.associate { project ->
                     project.id to (tasksByParent[project.id] ?: emptyList())
                 }
 
+                val collapsed = allProjects.filter { it.collapsed }.map { it.id }.toSet()
+
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     activeProjects = activeProjects,
                     childrenByProject = childrenByProject,
-                    oneOffTasks = oneOffProject?.let { tasksByParent[it.id] } ?: emptyList(),
-                    routineTasks = routinesProject?.let { tasksByParent[it.id] } ?: emptyList(),
-                    oneOffProjectId = oneOffProject?.id,
-                    routinesProjectId = routinesProject?.id,
+                    collapsedProjects = collapsed,
                     allProjects = allProjects,
                 )
             } catch (e: Exception) {
@@ -82,29 +75,41 @@ class ActiveDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val allProjects = taskRepository.getLongTasks()
-                val allActiveProjects = allProjects.filter { it.state == TaskState.ACTIVE && it.title !in SPECIAL_TITLES }
-
-                val oneOffProject = allProjects.find { it.title == "One-Off Tasks" }
-                val routinesProject = allProjects.find { it.title == "Routines" }
 
                 val activeTasks = taskRepository.getShortTasks(state = "ACTIVE")
                 val tasksByParent = activeTasks.groupBy { it.parentId }
 
-                val activeProjects = allActiveProjects.filter { (tasksByParent[it.id] ?: emptyList()).isNotEmpty() }
+                val activeProjects = allProjects.filter {
+                    it.state == TaskState.ACTIVE && (tasksByParent[it.id] ?: emptyList()).isNotEmpty()
+                }
 
                 val childrenByProject = activeProjects.associate { project ->
                     project.id to (tasksByParent[project.id] ?: emptyList())
                 }
 
+                val collapsed = allProjects.filter { it.collapsed }.map { it.id }.toSet()
+
                 _uiState.value = _uiState.value.copy(
                     activeProjects = activeProjects,
                     childrenByProject = childrenByProject,
-                    oneOffTasks = oneOffProject?.let { tasksByParent[it.id] } ?: emptyList(),
-                    routineTasks = routinesProject?.let { tasksByParent[it.id] } ?: emptyList(),
-                    oneOffProjectId = oneOffProject?.id,
-                    routinesProjectId = routinesProject?.id,
+                    collapsedProjects = collapsed,
                     allProjects = allProjects,
                 )
+            } catch (_: Exception) {}
+        }
+    }
+
+    fun toggleProjectCollapse(projectId: String) {
+        val wasCollapsed = _uiState.value.collapsedProjects.contains(projectId)
+        val newCollapsed = if (wasCollapsed) {
+            _uiState.value.collapsedProjects - projectId
+        } else {
+            _uiState.value.collapsedProjects + projectId
+        }
+        _uiState.value = _uiState.value.copy(collapsedProjects = newCollapsed)
+        viewModelScope.launch {
+            try {
+                taskRepository.updateLongTask(projectId, collapsed = !wasCollapsed)
             } catch (_: Exception) {}
         }
     }
@@ -116,12 +121,12 @@ class ActiveDashboardViewModel @Inject constructor(
                 if (pid == parentId) tasks.map { if (it.id == taskId) it.copy(state = newState) else it }
                 else tasks
             },
-            oneOffTasks = _uiState.value.oneOffTasks.map { if (it.id == taskId) it.copy(state = newState) else it },
-            routineTasks = _uiState.value.routineTasks.map { if (it.id == taskId) it.copy(state = newState) else it },
         )
         viewModelScope.launch {
             try {
                 taskRepository.changeShortTaskState(taskId, state)
+                delay(1200)
+                silentRefresh()
             } catch (_: Exception) { refresh() }
         }
     }
@@ -133,8 +138,6 @@ class ActiveDashboardViewModel @Inject constructor(
                 if (pid == parentId) tasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it }
                 else tasks
             },
-            oneOffTasks = _uiState.value.oneOffTasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it },
-            routineTasks = _uiState.value.routineTasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it },
         )
         viewModelScope.launch {
             try {
@@ -148,8 +151,6 @@ class ActiveDashboardViewModel @Inject constructor(
             childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
                 if (pid == parentId) tasks.filter { it.id != taskId } else tasks
             },
-            oneOffTasks = _uiState.value.oneOffTasks.filter { it.id != taskId },
-            routineTasks = _uiState.value.routineTasks.filter { it.id != taskId },
         )
         viewModelScope.launch {
             try {

@@ -21,6 +21,7 @@ data class UpdateTaskRequest(
     val emoji: String? = null,
     val priority: String? = null,
     val order: Int? = null,
+    val collapsed: Boolean? = null,
 )
 
 @JsonClass(generateAdapter = true)

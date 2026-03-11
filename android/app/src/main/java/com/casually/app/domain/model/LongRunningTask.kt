@@ -17,6 +17,7 @@ data class LongRunningTask(
     val priority: Priority,
     val state: TaskState,
     val order: Int,
+    val collapsed: Boolean = false,
     val blockedById: String?,
     val userId: String,
     val children: List<ShortRunningTask>? = null,

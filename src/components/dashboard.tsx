@@ -5,7 +5,6 @@ import { type Priority, type TaskState, STATE_LABELS } from '@/types'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
 import { CollapsibleProjectCard } from '@/components/collapsible-project-card'
 import { SortableList, DragHandle } from '@/components/sortable-list'
-import { useCollapseState } from '@/hooks/use-collapse-state'
 import { reorderItems } from '@/lib/reorder'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
@@ -26,6 +25,7 @@ interface Project {
   emoji: string | null
   priority: Priority
   state: TaskState
+  collapsed: boolean
   blockedBy?: { id: string; title: string; emoji: string | null } | null
   _count: { children: number }
 }
@@ -37,7 +37,6 @@ export function Dashboard() {
   const [projectStateFilter, setProjectStateFilter] = useState('ACTIVE')
   const [taskStateFilter, setTaskStateFilter] = useState('ACTIVE')
   const [refreshKey, setRefreshKey] = useState(0)
-  const { isCollapsed, toggle } = useCollapseState()
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -78,6 +77,35 @@ export function Dashboard() {
       fetchProjects()
       toast.error('Failed to reorder projects')
     }
+  }
+
+  async function handleToggleCollapse(projectId: string) {
+    const project = allProjects.find((p) => p.id === projectId)
+    if (!project) return
+    const newCollapsed = !project.collapsed
+    setAllProjects((prev) =>
+      prev.map((p) => (p.id === projectId ? { ...p, collapsed: newCollapsed } : p))
+    )
+    try {
+      await fetch(`/api/tasks/long/${projectId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collapsed: newCollapsed }),
+      })
+    } catch {
+      // revert on failure
+      setAllProjects((prev) =>
+        prev.map((p) => (p.id === projectId ? { ...p, collapsed: !newCollapsed } : p))
+      )
+    }
+  }
+
+  async function handleMoveProject(fromIndex: number, toIndex: number) {
+    if (toIndex < 0 || toIndex >= filtered.length) return
+    const reordered = [...filtered]
+    const [moved] = reordered.splice(fromIndex, 1)
+    reordered.splice(toIndex, 0, moved)
+    handleReorder(reordered)
   }
 
   return (
@@ -141,24 +169,31 @@ export function Dashboard() {
           items={filtered}
           getItemId={(p) => p.id}
           onReorder={handleReorder}
-          renderItem={(project, dragHandleProps) => (
-            <CollapsibleProjectCard
-              id={project.id}
-              title={project.title}
-              description={project.description}
-              emoji={project.emoji}
-              priority={project.priority}
-              state={project.state}
-              childCount={project._count.children}
-              blockedBy={project.blockedBy}
-              isCollapsed={isCollapsed(project.id)}
-              onToggle={() => toggle(project.id)}
-              onActionComplete={fetchProjects}
-              dragHandleProps={dragHandleProps}
-              refreshKey={refreshKey}
-              taskStateFilter={taskStateFilter}
-            />
-          )}
+          renderItem={(project, dragHandleProps) => {
+            const index = filtered.indexOf(project)
+            return (
+              <CollapsibleProjectCard
+                id={project.id}
+                title={project.title}
+                description={project.description}
+                emoji={project.emoji}
+                priority={project.priority}
+                state={project.state}
+                childCount={project._count.children}
+                blockedBy={project.blockedBy}
+                isCollapsed={project.collapsed}
+                onToggle={() => handleToggleCollapse(project.id)}
+                onActionComplete={fetchProjects}
+                dragHandleProps={dragHandleProps}
+                refreshKey={refreshKey}
+                taskStateFilter={taskStateFilter}
+                isFirst={index === 0}
+                isLast={index === filtered.length - 1}
+                onMoveUp={() => handleMoveProject(index, index - 1)}
+                onMoveDown={() => handleMoveProject(index, index + 1)}
+              />
+            )
+          }}
         />
       ) : (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">

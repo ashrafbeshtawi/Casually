@@ -29,42 +29,20 @@ private val WidgetOnSurfaceDark = android.graphics.Color.parseColor("#E6E1E5")
 private val WidgetMutedLight = android.graphics.Color.parseColor("#49454F")
 private val WidgetMutedDark = android.graphics.Color.parseColor("#CAC4D0")
 
-// State badge colors
-private val StateActive = android.graphics.Color.parseColor("#22C55E")
-private val StateWaiting = android.graphics.Color.parseColor("#EAB308")
-private val StateBlocked = android.graphics.Color.parseColor("#EF4444")
-private val StateDone = android.graphics.Color.parseColor("#6B7280")
-
-private fun stateColor(state: String?): Int = when (state) {
-    "ACTIVE" -> StateActive
-    "WAITING" -> StateWaiting
-    "BLOCKED" -> StateBlocked
-    "DONE" -> StateDone
-    else -> StateActive
-}
-
-private fun stateLabel(state: String?): String = when (state) {
-    "ACTIVE" -> "Active"
-    "WAITING" -> "Wait"
-    "BLOCKED" -> "Block"
-    "DONE" -> "Done"
-    else -> "Active"
-}
-
 // Priority colors
-private val PriorityHighest = android.graphics.Color.parseColor("#EF4444")
-private val PriorityHigh = android.graphics.Color.parseColor("#F97316")
-private val PriorityMedium = android.graphics.Color.parseColor("#EAB308")
-private val PriorityLow = android.graphics.Color.parseColor("#3B82F6")
-private val PriorityLowest = android.graphics.Color.parseColor("#22C55E")
+private val PrioHighest = android.graphics.Color.parseColor("#EF4444")
+private val PrioHigh = android.graphics.Color.parseColor("#F97316")
+private val PrioMedium = android.graphics.Color.parseColor("#EAB308")
+private val PrioLow = android.graphics.Color.parseColor("#3B82F6")
+private val PrioLowest = android.graphics.Color.parseColor("#22C55E")
 
 private fun priorityColor(priority: String?): Int = when (priority) {
-    "HIGHEST" -> PriorityHighest
-    "HIGH" -> PriorityHigh
-    "MEDIUM" -> PriorityMedium
-    "LOW" -> PriorityLow
-    "LOWEST" -> PriorityLowest
-    else -> PriorityMedium
+    "HIGHEST" -> PrioHighest
+    "HIGH" -> PrioHigh
+    "MEDIUM" -> PrioMedium
+    "LOW" -> PrioLow
+    "LOWEST" -> PrioLowest
+    else -> PrioMedium
 }
 
 class CasuallyWidget : GlanceAppWidget() {
@@ -117,17 +95,17 @@ class CasuallyWidget : GlanceAppWidget() {
                         .padding(12.dp)
                         .cornerRadius(16.dp),
                 ) {
-                    // Branded header with "+" button
+                    // Header
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(
-                            "Casually",
+                            "\u2705 Active Tasks",
                             style = TextStyle(
                                 fontWeight = FontWeight.Bold,
                                 color = onSurfaceColor,
-                                fontSize = 18.sp,
+                                fontSize = 24.sp,
                             ),
                             modifier = GlanceModifier.defaultWeight(),
                         )
@@ -136,7 +114,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                 modifier = GlanceModifier
                                     .cornerRadius(12.dp)
                                     .background(purpleColor)
-                                    .padding(horizontal = 8.dp, vertical = 2.dp)
+                                    .padding(horizontal = 10.dp, vertical = 3.dp)
                                     .clickable(actionStartActivity<MainActivity>()),
                                 contentAlignment = Alignment.Center,
                             ) {
@@ -145,7 +123,7 @@ class CasuallyWidget : GlanceAppWidget() {
                                     style = TextStyle(
                                         color = whiteColor,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 18.sp,
+                                        fontSize = 24.sp,
                                     ),
                                 )
                             }
@@ -165,7 +143,6 @@ class CasuallyWidget : GlanceAppWidget() {
                     Spacer(modifier = GlanceModifier.height(8.dp))
 
                     if (!sessionManager.isLoggedIn) {
-                        // Sign-in state
                         Box(
                             modifier = GlanceModifier
                                 .fillMaxWidth()
@@ -179,7 +156,6 @@ class CasuallyWidget : GlanceAppWidget() {
                             )
                         }
                     } else if (data == null || data.projects.isEmpty()) {
-                        // Empty state
                         Box(
                             modifier = GlanceModifier
                                 .fillMaxWidth()
@@ -205,64 +181,43 @@ class CasuallyWidget : GlanceAppWidget() {
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                     ) {
-                                        // Project header row
+                                        val isCollapsed = project.collapsed == true
+                                        val collapseIndicator = if (isCollapsed) "\u25B6" else "\u25BC"
+
+                                        // Project header — tap toggles collapse
                                         Row(
-                                            modifier = GlanceModifier.fillMaxWidth(),
+                                            modifier = GlanceModifier
+                                                .fillMaxWidth()
+                                                .clickable(actionStartActivityIntent(
+                                                    Intent(context, WidgetStatePickerActivity::class.java).apply {
+                                                        action = "TOGGLE_COLLAPSE_${project.id}"
+                                                        putExtra("project_id", project.id)
+                                                        putExtra("current_collapsed", isCollapsed)
+                                                    },
+                                                )),
                                             verticalAlignment = Alignment.CenterVertically,
                                         ) {
-                                            // Tappable state badge for project
-                                            val projColor = stateColor(project.state)
-                                            Box(
-                                                modifier = GlanceModifier
-                                                    .cornerRadius(8.dp)
-                                                    .background(ColorProvider(
-                                                        day = androidx.compose.ui.graphics.Color(projColor),
-                                                        night = androidx.compose.ui.graphics.Color(projColor),
-                                                    ))
-                                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                                                    .clickable(actionStartActivityIntent(
-                                                        Intent(context, WidgetStatePickerActivity::class.java).apply {
-                                                            action = "STATE_PICK_${project.id}_long"
-                                                            putExtra("item_id", project.id)
-                                                            putExtra("item_type", "long")
-                                                            putExtra("current_state", project.state ?: "ACTIVE")
-                                                        },
-                                                    )),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Text(
-                                                    stateLabel(project.state),
-                                                    style = TextStyle(
-                                                        color = whiteColor,
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                    ),
-                                                )
-                                            }
-                                            Spacer(modifier = GlanceModifier.width(6.dp))
                                             Text(
-                                                "${project.emoji ?: ""} ${project.title}".trim(),
+                                                "$collapseIndicator ${project.emoji ?: ""} ${project.title}".trim(),
                                                 style = TextStyle(
                                                     fontWeight = FontWeight.Bold,
                                                     color = onSurfaceColor,
-                                                    fontSize = 16.sp,
+                                                    fontSize = 22.sp,
                                                 ),
-                                                modifier = GlanceModifier
-                                                    .defaultWeight()
-                                                    .clickable(actionStartActivity<MainActivity>()),
+                                                modifier = GlanceModifier.defaultWeight(),
                                             )
                                             if (totalTasks > 0) {
                                                 Box(
                                                     modifier = GlanceModifier
                                                         .cornerRadius(10.dp)
                                                         .background(purpleColor)
-                                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                                        .padding(horizontal = 7.dp, vertical = 3.dp),
                                                 ) {
                                                     Text(
                                                         "$doneTasks/$totalTasks",
                                                         style = TextStyle(
                                                             color = whiteColor,
-                                                            fontSize = 13.sp,
+                                                            fontSize = 16.sp,
                                                             fontWeight = FontWeight.Medium,
                                                         ),
                                                     )
@@ -270,66 +225,46 @@ class CasuallyWidget : GlanceAppWidget() {
                                             }
                                         }
 
-                                        // Tasks under this project
-                                        tasks.forEach { task ->
-                                            Row(
-                                                modifier = GlanceModifier
-                                                    .fillMaxWidth()
-                                                    .padding(start = 16.dp, top = 3.dp, bottom = 3.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                // Tappable state badge for task
-                                                val taskColor = stateColor(task.state)
-                                                Box(
+                                        // Tasks — only show when not collapsed
+                                        if (!isCollapsed) {
+                                            tasks.forEach { task ->
+                                                val taskDisplayName = "${task.emoji ?: ""} ${task.title}".trim()
+                                                val pColor = priorityColor(task.priority)
+                                                Row(
                                                     modifier = GlanceModifier
-                                                        .cornerRadius(6.dp)
-                                                        .background(ColorProvider(
-                                                            day = androidx.compose.ui.graphics.Color(taskColor),
-                                                            night = androidx.compose.ui.graphics.Color(taskColor),
-                                                        ))
-                                                        .padding(horizontal = 5.dp, vertical = 2.dp)
+                                                        .fillMaxWidth()
+                                                        .padding(start = 16.dp, top = 3.dp, bottom = 3.dp)
                                                         .clickable(actionStartActivityIntent(
                                                             Intent(context, WidgetStatePickerActivity::class.java).apply {
                                                                 action = "STATE_PICK_${task.id}_short"
                                                                 putExtra("item_id", task.id)
                                                                 putExtra("item_type", "short")
                                                                 putExtra("current_state", task.state ?: "ACTIVE")
+                                                                putExtra("item_name", taskDisplayName)
                                                             },
                                                         )),
-                                                    contentAlignment = Alignment.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
                                                 ) {
+                                                    // Priority color dot
+                                                    Box(
+                                                        modifier = GlanceModifier
+                                                            .size(12.dp)
+                                                            .cornerRadius(6.dp)
+                                                            .background(ColorProvider(
+                                                                day = androidx.compose.ui.graphics.Color(pColor),
+                                                                night = androidx.compose.ui.graphics.Color(pColor),
+                                                            )),
+                                                    ) {}
+                                                    Spacer(modifier = GlanceModifier.width(8.dp))
                                                     Text(
-                                                        stateLabel(task.state),
+                                                        taskDisplayName,
                                                         style = TextStyle(
-                                                            color = whiteColor,
-                                                            fontSize = 11.sp,
-                                                            fontWeight = FontWeight.Medium,
+                                                            color = mutedColor,
+                                                            fontSize = 18.sp,
                                                         ),
+                                                        maxLines = 1,
                                                     )
                                                 }
-                                                Spacer(modifier = GlanceModifier.width(6.dp))
-                                                // Priority dot
-                                                val dotColor = priorityColor(task.priority)
-                                                Box(
-                                                    modifier = GlanceModifier
-                                                        .size(8.dp)
-                                                        .cornerRadius(4.dp)
-                                                        .background(ColorProvider(
-                                                            day = androidx.compose.ui.graphics.Color(dotColor),
-                                                            night = androidx.compose.ui.graphics.Color(dotColor),
-                                                        )),
-                                                ) {}
-                                                Spacer(modifier = GlanceModifier.width(6.dp))
-                                                Text(
-                                                    "${task.emoji ?: ""} ${task.title}".trim(),
-                                                    style = TextStyle(
-                                                        color = mutedColor,
-                                                        fontSize = 15.sp,
-                                                    ),
-                                                    modifier = GlanceModifier
-                                                        .defaultWeight()
-                                                        .clickable(actionStartActivity<MainActivity>()),
-                                                )
                                             }
                                         }
                                     }

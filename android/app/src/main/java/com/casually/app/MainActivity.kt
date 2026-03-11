@@ -23,6 +23,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        val deepLinkProjectId = intent.getStringExtra("project_id")
+
         setContent {
             val prefs = getSharedPreferences("casually_settings", Context.MODE_PRIVATE)
             var themeMode by remember {
@@ -41,6 +43,7 @@ class MainActivity : ComponentActivity() {
                         themeMode = mode
                         prefs.edit().putString("theme_mode", mode.name).apply()
                     },
+                    initialProjectId = deepLinkProjectId,
                 )
             }
         }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Collapsible as CollapsiblePrimitive } from 'radix-ui'
-import { ChevronRight, Loader2 } from 'lucide-react'
+import { ChevronRight, ChevronUp, ChevronDown, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { type Priority, type TaskState, PRIORITY_COLORS, STATE_LABELS } from '@/types'
 import { ProgressBar } from '@/components/progress-bar'
@@ -45,6 +45,10 @@ interface CollapsibleProjectCardProps {
   dragHandleProps: DragHandleProps
   refreshKey?: number
   taskStateFilter?: string
+  isFirst?: boolean
+  isLast?: boolean
+  onMoveUp?: () => void
+  onMoveDown?: () => void
 }
 
 export function CollapsibleProjectCard({
@@ -62,6 +66,10 @@ export function CollapsibleProjectCard({
   dragHandleProps,
   refreshKey,
   taskStateFilter = 'ACTIVE',
+  isFirst,
+  isLast,
+  onMoveUp,
+  onMoveDown,
 }: CollapsibleProjectCardProps) {
   const isProtected = PROTECTED_TITLES.includes(title)
   const borderColor = PRIORITY_COLORS[priority]
@@ -135,6 +143,24 @@ export function CollapsibleProjectCard({
         {/* Header — single row */}
         <div className="flex items-center gap-1 px-1.5 py-1.5 sm:px-2">
           <DragHandle {...dragHandleProps} />
+          <div className="flex flex-col -my-0.5">
+            <button
+              type="button"
+              disabled={isFirst}
+              onClick={(e) => { e.stopPropagation(); onMoveUp?.() }}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none p-0 leading-none"
+            >
+              <ChevronUp className="h-3.5 w-3.5" />
+            </button>
+            <button
+              type="button"
+              disabled={isLast}
+              onClick={(e) => { e.stopPropagation(); onMoveDown?.() }}
+              className="text-muted-foreground hover:text-foreground disabled:opacity-20 disabled:pointer-events-none p-0 leading-none"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </button>
+          </div>
           <CollapsiblePrimitive.Trigger asChild>
             <button
               type="button"

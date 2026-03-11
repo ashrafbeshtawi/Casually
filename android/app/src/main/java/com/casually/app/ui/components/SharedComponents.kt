@@ -80,12 +80,16 @@ fun ProjectHeader(
     isExpanded: Boolean,
     childCount: Int,
     isProtected: Boolean,
+    isFirst: Boolean = false,
+    isLast: Boolean = false,
     onToggle: () -> Unit,
     onAddTask: () -> Unit,
     onChangeState: (TaskState) -> Unit,
     onChangePriority: (Priority) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
+    onMoveUp: () -> Unit = {},
+    onMoveDown: () -> Unit = {},
 ) {
     val borderColor = project.priority.color
     val chevronRotation by animateFloatAsState(
@@ -199,6 +203,19 @@ fun ProjectHeader(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("Move up") },
+                            onClick = { showMenu = false; onMoveUp() },
+                            leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null, Modifier.size(18.dp)) },
+                            enabled = !isFirst,
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Move down") },
+                            onClick = { showMenu = false; onMoveDown() },
+                            leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, Modifier.size(18.dp)) },
+                            enabled = !isLast,
+                        )
+                        HorizontalDivider()
                         DropdownMenuItem(
                             text = { Text("Add task") },
                             onClick = { showMenu = false; onAddTask() },

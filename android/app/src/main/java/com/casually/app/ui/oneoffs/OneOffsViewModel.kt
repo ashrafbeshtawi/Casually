@@ -8,6 +8,7 @@ import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
@@ -19,6 +20,7 @@ data class OneOffsUiState(
     val tasks: List<ShortRunningTask> = emptyList(),
     val allProjects: List<LongRunningTask> = emptyList(),
     val stateFilter: String = "ACTIVE",
+    val recentlyChangedIds: Set<String> = emptySet(),
     val error: String? = null,
 )
 
@@ -65,18 +67,18 @@ class OneOffsViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(stateFilter = filter)
     }
 
-    val filteredTasks: List<ShortRunningTask>
-        get() {
-            val state = _uiState.value
-            return if (state.stateFilter == "ALL") state.tasks
-            else state.tasks.filter { it.state.name == state.stateFilter }
-        }
-
     fun changeTaskState(taskId: String, state: String) {
         val newState = TaskState.valueOf(state)
         _uiState.value = _uiState.value.copy(
-            tasks = _uiState.value.tasks.map { if (it.id == taskId) it.copy(state = newState) else it }
+            tasks = _uiState.value.tasks.map { if (it.id == taskId) it.copy(state = newState) else it },
+            recentlyChangedIds = _uiState.value.recentlyChangedIds + taskId,
         )
+        viewModelScope.launch {
+            delay(1200)
+            _uiState.value = _uiState.value.copy(
+                recentlyChangedIds = _uiState.value.recentlyChangedIds - taskId,
+            )
+        }
         viewModelScope.launch {
             try {
                 taskRepository.changeShortTaskState(taskId, state)
