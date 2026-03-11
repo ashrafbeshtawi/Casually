@@ -47,7 +47,7 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    private fun silentRefresh() {
+    fun silentRefresh() {
         viewModelScope.launch {
             try {
                 val projects = taskRepository.getLongTasks()

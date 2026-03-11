@@ -80,7 +80,7 @@ class WidgetDataProvider(private val context: Context) {
             val request = Request.Builder()
                 .url("$baseUrl/api/tasks/$type/$id/state")
                 .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
-                .put(body)
+                .patch(body)
                 .build()
             val response = client.newCall(request).execute()
             response.close()

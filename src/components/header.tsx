@@ -19,8 +19,8 @@ const pageTitles: Record<string, string> = {
   '/': 'Dashboard',
   '/one-off': 'One-Off Tasks',
   '/routines': 'Routines',
-  '/blocked': 'Blocked',
-  '/archive': 'Archive',
+  '/projects': 'Projects',
+  '/achievements': 'Achievements',
 }
 
 function getPageTitle(pathname: string): string {

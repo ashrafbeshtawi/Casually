@@ -18,7 +18,17 @@
       "Bash(npx next:*)",
       "Bash(openssl rand:*)",
       "Bash(PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=\"Yes, proceed with \\\\`npx prisma db push --force-reset\\\\`. The user has approved resetting the database. Continue with the remaining steps \\(generate, commit\\).\" npx prisma:*)",
-      "Bash(git check-ignore:*)"
+      "Bash(git check-ignore:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx ts-node --esm prisma/seed.ts 2>&1 || npx tsx --tsconfig tsconfig.json prisma/seed.ts 2>&1)",
+      "Bash(node:*)",
+      "Bash(NODE_OPTIONS=\"--no-warnings\" npx tsx:*)",
+      "Bash(echo:*)",
+      "Bash(set -a && source .env && set +a && npx tsx prisma/seed.ts 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(cd /Users/ashraf.beshtawi/Desktop/Casually/android && ./gradlew assembleDebug 2>&1)",
+      "Bash(keytool:*)",
+      "WebSearch"
     ]
   }
 }

@@ -6,8 +6,8 @@ import {
   LayoutDashboard,
   Zap,
   RefreshCw,
-  Ban,
-  Archive,
+  FolderKanban,
+  Trophy,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -17,8 +17,8 @@ const navItems = [
   { label: 'Dashboard', href: '/', icon: LayoutDashboard },
   { label: 'One-Off Tasks', href: '/one-off', icon: Zap },
   { label: 'Routines', href: '/routines', icon: RefreshCw },
-  { label: 'Blocked', href: '/blocked', icon: Ban },
-  { label: 'Archive', href: '/archive', icon: Archive },
+  { label: 'Projects', href: '/projects', icon: FolderKanban },
+  { label: 'Achievements', href: '/achievements', icon: Trophy },
 ]
 
 function NavContent() {

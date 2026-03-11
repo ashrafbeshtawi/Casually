@@ -3,7 +3,7 @@ import { prisma } from '@/lib/prisma'
 import { getCurrentUser } from '@/lib/session'
 import { type Priority, type TaskState } from '@/types'
 import { TaskCard } from '@/components/task-card'
-import { Archive, FolderKanban, ListChecks } from 'lucide-react'
+import { Trophy, FolderKanban, ListChecks } from 'lucide-react'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -33,7 +33,7 @@ function formatCompletionDate(date: Date): string {
 // Page
 // ---------------------------------------------------------------------------
 
-export default async function ArchivePage() {
+export default async function AchievementsPage() {
   const user = await getCurrentUser()
   if (!user?.id) {
     redirect('/login')
@@ -73,7 +73,7 @@ export default async function ArchivePage() {
     <div className="space-y-8">
       {/* Page header */}
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Archive</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Achievements</h1>
         <p className="text-muted-foreground text-sm">
           All your completed tasks in one place.
         </p>
@@ -81,7 +81,7 @@ export default async function ArchivePage() {
 
       {!hasAnyItems ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
-          <Archive className="text-muted-foreground mb-3 h-10 w-10" />
+          <Trophy className="text-muted-foreground mb-3 h-10 w-10" />
           <p className="text-muted-foreground text-sm">
             No completed tasks yet. Start checking things off!
           </p>
