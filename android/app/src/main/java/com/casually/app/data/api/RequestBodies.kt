@@ -41,3 +41,9 @@ data class ChangeStateRequest(
 
 @JsonClass(generateAdapter = true)
 data class MoveTaskRequest(val newParentId: String)
+
+@JsonClass(generateAdapter = true)
+data class CreateChallengeRequest(
+    val title: String,
+    val emoji: String? = null,
+)

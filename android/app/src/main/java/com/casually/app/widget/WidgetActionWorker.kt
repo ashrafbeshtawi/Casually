@@ -37,7 +37,12 @@ class WidgetActionWorker(
 
         if (data != null) {
             provider.saveToCache(data)
-            CasuallyWidget().updateAll(context)
+            // Skip updateAll for collapse — the optimistic update in CollapseActionCallback
+            // already re-rendered the widget. Calling updateAll again causes a redundant
+            // re-render that manifests as visible lag.
+            if (action != "collapse") {
+                CasuallyWidget().updateAll(context)
+            }
         }
 
         return Result.success()

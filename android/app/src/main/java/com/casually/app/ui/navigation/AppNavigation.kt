@@ -18,6 +18,7 @@ import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.activedashboard.ActiveDashboardScreen
 import com.casually.app.ui.achievements.AchievementsScreen
+import com.casually.app.ui.challenges.ChallengesScreen
 import com.casually.app.ui.components.TaskFormSheet
 import com.casually.app.ui.dashboard.DashboardScreen
 import com.casually.app.ui.login.LoginScreen
@@ -35,6 +36,7 @@ enum class BottomNavItem(val route: String, val label: String, val icon: ImageVe
     Routines("routines", "Routines", Icons.Default.Refresh),
     Projects("projects", "Projects", Icons.Default.FolderOpen),
     Achievements("achievements", "Achievements", Icons.Default.EmojiEvents),
+    Challenges("challenges", "Challenges", Icons.Default.LocalFireDepartment),
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -45,16 +47,21 @@ fun AppNavigation(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
     initialProjectId: String? = null,
+    showCreateTask: Boolean = false,
 ) {
     val navController = rememberNavController()
     val startRoute = if (authRepository.isLoggedIn) "main" else "login"
 
     // Bottom sheet states
     var showCreateProject by remember { mutableStateOf(false) }
-    var showCreateTask by remember { mutableStateOf<String?>(null) }
+    var showCreateTaskForParent by remember { mutableStateOf<String?>(null) }
+    var showCreateTaskWithPicker by remember { mutableStateOf(false) }
     var showEditProject by remember { mutableStateOf<LongRunningTask?>(null) }
     var showEditTask by remember { mutableStateOf<Pair<ShortRunningTask, String>?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Projects for the project picker
+    var allProjectsForPicker by remember { mutableStateOf<List<LongRunningTask>>(emptyList()) }
 
     var dashboardRefreshTrigger by remember { mutableIntStateOf(0) }
     val context = LocalContext.current
@@ -73,6 +80,16 @@ fun AppNavigation(
     LaunchedEffect(initialProjectId) {
         if (initialProjectId != null && authRepository.isLoggedIn) {
             navController.navigate("project/$initialProjectId")
+        }
+    }
+
+    // Widget "+" button: show create task with project picker
+    LaunchedEffect(showCreateTask) {
+        if (showCreateTask && authRepository.isLoggedIn) {
+            try {
+                allProjectsForPicker = taskRepository.getLongTasks(state = "ACTIVE")
+            } catch (_: Exception) {}
+            showCreateTaskWithPicker = true
         }
     }
 
@@ -133,21 +150,29 @@ fun AppNavigation(
                 ) {
                     composable(BottomNavItem.Dashboard.route) {
                         ActiveDashboardScreen(
-                            onCreateTask = { parentId -> showCreateTask = parentId },
+                            onCreateTask = { parentId -> showCreateTaskForParent = parentId },
+                            onCreateTaskWithPicker = {
+                                scope.launch {
+                                    try {
+                                        allProjectsForPicker = taskRepository.getLongTasks(state = "ACTIVE")
+                                    } catch (_: Exception) {}
+                                    showCreateTaskWithPicker = true
+                                }
+                            },
                             onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
                     }
                     composable(BottomNavItem.OneOffs.route) {
                         OneOffsScreen(
-                            onCreateTask = { parentId -> showCreateTask = parentId },
+                            onCreateTask = { parentId -> showCreateTaskForParent = parentId },
                             onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
                     }
                     composable(BottomNavItem.Routines.route) {
                         RoutinesScreen(
-                            onCreateTask = { parentId -> showCreateTask = parentId },
+                            onCreateTask = { parentId -> showCreateTaskForParent = parentId },
                             onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
@@ -155,7 +180,7 @@ fun AppNavigation(
                     composable(BottomNavItem.Projects.route) {
                         DashboardScreen(
                             onCreateProject = { showCreateProject = true },
-                            onCreateTask = { parentId -> showCreateTask = parentId },
+                            onCreateTask = { parentId -> showCreateTaskForParent = parentId },
                             onEditProject = { project -> showEditProject = project },
                             onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
@@ -163,6 +188,9 @@ fun AppNavigation(
                     }
                     composable(BottomNavItem.Achievements.route) {
                         AchievementsScreen()
+                    }
+                    composable(BottomNavItem.Challenges.route) {
+                        ChallengesScreen()
                     }
                 }
             }
@@ -174,7 +202,7 @@ fun AppNavigation(
         ) {
             ProjectDetailScreen(
                 onBack = { navController.popBackStack() },
-                onAddTask = { parentId -> showCreateTask = parentId },
+                onAddTask = { parentId -> showCreateTaskForParent = parentId },
             )
         }
 
@@ -215,7 +243,7 @@ fun AppNavigation(
             title = "Create Project",
             showStateField = true,
             onDismiss = { showCreateProject = false },
-            onSubmit = { title, desc, emoji, priority, state ->
+            onSubmit = { title, desc, emoji, priority, state, _ ->
                 scope.launch {
                     taskRepository.createLongTask(title, desc, emoji, priority, state ?: "WAITING")
                     showCreateProject = false
@@ -225,17 +253,36 @@ fun AppNavigation(
         )
     }
 
-    // Create task bottom sheet
-    showCreateTask?.let { parentId ->
+    // Create task bottom sheet (with known parent)
+    showCreateTaskForParent?.let { parentId ->
         TaskFormSheet(
             title = "Create Task",
             showStateField = false,
-            onDismiss = { showCreateTask = null },
-            onSubmit = { title, desc, emoji, priority, _ ->
+            onDismiss = { showCreateTaskForParent = null },
+            onSubmit = { title, desc, emoji, priority, _, _ ->
                 scope.launch {
                     taskRepository.createShortTask(parentId, title, desc, emoji, priority)
-                    showCreateTask = null
+                    showCreateTaskForParent = null
                     dashboardRefreshTrigger++
+                }
+            },
+        )
+    }
+
+    // Create task bottom sheet with project picker (from FAB / widget "+")
+    if (showCreateTaskWithPicker) {
+        TaskFormSheet(
+            title = "Create Task",
+            showStateField = false,
+            projects = allProjectsForPicker,
+            onDismiss = { showCreateTaskWithPicker = false },
+            onSubmit = { title, desc, emoji, priority, _, selectedProjectId ->
+                if (selectedProjectId != null) {
+                    scope.launch {
+                        taskRepository.createShortTask(selectedProjectId, title, desc, emoji, priority)
+                        showCreateTaskWithPicker = false
+                        dashboardRefreshTrigger++
+                    }
                 }
             },
         )
@@ -252,7 +299,7 @@ fun AppNavigation(
             initialState = project.state,
             showStateField = false,
             onDismiss = { showEditProject = null },
-            onSubmit = { title, desc, emoji, priority, _ ->
+            onSubmit = { title, desc, emoji, priority, _, _ ->
                 scope.launch {
                     taskRepository.updateLongTask(
                         project.id,
@@ -278,7 +325,7 @@ fun AppNavigation(
             initialPriority = task.priority,
             showStateField = false,
             onDismiss = { showEditTask = null },
-            onSubmit = { title, desc, emoji, priority, _ ->
+            onSubmit = { title, desc, emoji, priority, _, _ ->
                 scope.launch {
                     taskRepository.updateShortTask(
                         task.id,

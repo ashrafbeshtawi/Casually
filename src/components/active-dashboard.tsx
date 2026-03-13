@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
+import { AddTaskDialog } from '@/components/add-task-dialog'
 import { Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 
 interface Project {
@@ -114,6 +115,9 @@ export function ActiveDashboard() {
 
   return (
     <div className="mx-auto max-w-3xl space-y-3">
+      <div className="flex items-center justify-end">
+        <AddTaskDialog onCreated={fetchData} />
+      </div>
       {visibleProjects.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-16">
           <p className="text-muted-foreground text-sm">

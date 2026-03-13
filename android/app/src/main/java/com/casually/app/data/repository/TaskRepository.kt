@@ -1,6 +1,7 @@
 package com.casually.app.data.repository
 
 import com.casually.app.data.api.*
+import com.casually.app.domain.model.Challenge
 import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
 import javax.inject.Inject
@@ -76,4 +77,14 @@ class TaskRepository @Inject constructor(
 
     suspend fun moveShortTask(id: String, newParentId: String): ShortRunningTask =
         api.moveShortTask(id, MoveTaskRequest(newParentId))
+
+    // Challenges
+    suspend fun getChallenges(): List<Challenge> = api.getChallenges()
+
+    suspend fun createChallenge(title: String, emoji: String? = null): Challenge =
+        api.createChallenge(CreateChallengeRequest(title, emoji))
+
+    suspend fun deleteChallenge(id: String) { api.deleteChallenge(id) }
+
+    suspend fun relapseChallenge(id: String): Challenge = api.relapseChallenge(id)
 }

@@ -118,7 +118,12 @@ class CasuallyWidget : GlanceAppWidget() {
                                     .cornerRadius(12.dp)
                                     .background(purpleColor)
                                     .padding(horizontal = 10.dp, vertical = 3.dp)
-                                    .clickable(actionStartActivity<MainActivity>()),
+                                    .clickable(actionStartActivityIntent(
+                                        Intent(context, MainActivity::class.java).apply {
+                                            putExtra("show_create_task", true)
+                                            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                                        },
+                                    )),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(

@@ -22,11 +22,13 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
+import com.casually.app.ui.theme.CasuallyPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ActiveDashboardScreen(
     onCreateTask: (parentId: String) -> Unit,
+    onCreateTaskWithPicker: () -> Unit = {},
     onEditTask: (ShortRunningTask, String) -> Unit,
     refreshTrigger: Int = 0,
     viewModel: ActiveDashboardViewModel = hiltViewModel(),
@@ -61,6 +63,7 @@ fun ActiveDashboardScreen(
             isRefreshing = false,
             onRefresh = { viewModel.refresh() },
         ) {
+            Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -159,6 +162,17 @@ fun ActiveDashboardScreen(
                         }
                     }
                 }
+            }
+
+            FloatingActionButton(
+                onClick = { onCreateTaskWithPicker() },
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                containerColor = CasuallyPurple,
+            ) {
+                Icon(Icons.Default.Add, "Add task", tint = MaterialTheme.colorScheme.onPrimary)
+            }
             }
         }
     }

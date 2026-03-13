@@ -66,6 +66,7 @@ model User {
   accounts         Account[]
   sessions         Session[]
   longRunningTasks LongRunningTask[]
+  challenges       Challenge[]
   createdAt        DateTime          @default(now())
   updatedAt        DateTime          @updatedAt
 }
@@ -109,6 +110,17 @@ model ShortRunningTask {
   blockedBy   ShortRunningTask? @relation("ShortBlocksShort", fields: [blockedById], references: [id])
   blocking    ShortRunningTask[] @relation("ShortBlocksShort")
 
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Challenge {
+  id        String   @id @default(cuid())
+  title     String
+  emoji     String?
+  startedAt DateTime @default(now())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }

@@ -24,6 +24,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         val deepLinkProjectId = intent.getStringExtra("project_id")
+        val showCreateTaskIntent = intent.getBooleanExtra("show_create_task", false)
 
         setContent {
             val prefs = getSharedPreferences("casually_settings", Context.MODE_PRIVATE)
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
                         prefs.edit().putString("theme_mode", mode.name).apply()
                     },
                     initialProjectId = deepLinkProjectId,
+                    showCreateTask = showCreateTaskIntent,
                 )
             }
         }

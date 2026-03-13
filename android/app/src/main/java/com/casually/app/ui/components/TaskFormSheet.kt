@@ -9,6 +9,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
+import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.TaskState
 import com.casually.app.ui.theme.CasuallyPurple
@@ -23,8 +24,9 @@ fun TaskFormSheet(
     initialPriority: Priority = Priority.MEDIUM,
     initialState: TaskState? = null,
     showStateField: Boolean = false,
+    projects: List<LongRunningTask>? = null,
     onDismiss: () -> Unit,
-    onSubmit: (title: String, description: String?, emoji: String?, priority: String, state: String?) -> Unit,
+    onSubmit: (title: String, description: String?, emoji: String?, priority: String, state: String?, selectedProjectId: String?) -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var taskTitle by remember { mutableStateOf(initialTitle) }
@@ -32,6 +34,8 @@ fun TaskFormSheet(
     var taskEmoji by remember { mutableStateOf(initialEmoji) }
     var selectedPriority by remember { mutableStateOf(initialPriority) }
     var selectedState by remember { mutableStateOf(initialState ?: TaskState.WAITING) }
+    var selectedProjectId by remember { mutableStateOf<String?>(projects?.firstOrNull()?.id) }
+    var projectDropdownExpanded by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -84,6 +88,43 @@ fun TaskFormSheet(
                 singleLine = true,
                 shape = RoundedCornerShape(12.dp),
             )
+
+            // Project selector (when projects are provided)
+            if (projects != null && projects.isNotEmpty()) {
+                Text("Project", style = MaterialTheme.typography.labelLarge)
+                ExposedDropdownMenuBox(
+                    expanded = projectDropdownExpanded,
+                    onExpandedChange = { projectDropdownExpanded = it },
+                ) {
+                    val selectedProject = projects.find { it.id == selectedProjectId }
+                    val displayText = selectedProject?.let {
+                        if (it.emoji != null) "${it.emoji} ${it.title}" else it.title
+                    } ?: "Select project"
+                    OutlinedTextField(
+                        value = displayText,
+                        onValueChange = {},
+                        readOnly = true,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = projectDropdownExpanded) },
+                        modifier = Modifier.fillMaxWidth().menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = projectDropdownExpanded,
+                        onDismissRequest = { projectDropdownExpanded = false },
+                    ) {
+                        projects.forEach { project ->
+                            val label = if (project.emoji != null) "${project.emoji} ${project.title}" else project.title
+                            DropdownMenuItem(
+                                text = { Text(label) },
+                                onClick = {
+                                    selectedProjectId = project.id
+                                    projectDropdownExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
 
             // Priority selector as colored FilterChips
             Text("Priority", style = MaterialTheme.typography.labelLarge)
@@ -140,6 +181,7 @@ fun TaskFormSheet(
                         taskEmoji.trim().ifEmpty { null },
                         selectedPriority.name,
                         if (showStateField) selectedState.name else null,
+                        selectedProjectId,
                     )
                 },
                 modifier = Modifier.fillMaxWidth().height(48.dp),

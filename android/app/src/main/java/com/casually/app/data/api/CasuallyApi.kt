@@ -1,5 +1,6 @@
 package com.casually.app.data.api
 
+import com.casually.app.domain.model.Challenge
 import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
 import retrofit2.Response
@@ -68,4 +69,17 @@ interface CasuallyApi {
         @Path("id") id: String,
         @Body body: MoveTaskRequest,
     ): ShortRunningTask
+
+    // Challenges
+    @GET("api/challenges")
+    suspend fun getChallenges(): List<Challenge>
+
+    @POST("api/challenges")
+    suspend fun createChallenge(@Body body: CreateChallengeRequest): Challenge
+
+    @DELETE("api/challenges/{id}")
+    suspend fun deleteChallenge(@Path("id") id: String): Response<Unit>
+
+    @POST("api/challenges/{id}/relapse")
+    suspend fun relapseChallenge(@Path("id") id: String): Challenge
 }
