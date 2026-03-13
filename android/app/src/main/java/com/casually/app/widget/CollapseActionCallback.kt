@@ -1,10 +1,11 @@
 package com.casually.app.widget
 
 import android.content.Context
+import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
-import androidx.glance.appwidget.updateAll
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.work.*
 
 class CollapseActionCallback : ActionCallback {
@@ -12,42 +13,23 @@ class CollapseActionCallback : ActionCallback {
     companion object {
         val ProjectIdKey = ActionParameters.Key<String>("project_id")
 
-        private const val PREFS_NAME = "widget_collapse_state"
-
-        fun isCollapsed(context: Context, projectId: String): Boolean {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            return prefs.getBoolean(projectId, false)
-        }
-
-        fun setCollapsed(context: Context, projectId: String, collapsed: Boolean) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            prefs.edit().putBoolean(projectId, collapsed).commit() // commit() for synchronous write
-        }
-
-        /** Sync initial collapse state from API data into the prefs (called on data fetch). */
-        fun syncFromData(context: Context, projects: List<WidgetProject>) {
-            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            val editor = prefs.edit()
-            for (project in projects) {
-                // Only set if not already present — user's local toggle takes priority
-                if (!prefs.contains(project.id)) {
-                    editor.putBoolean(project.id, project.collapsed == true)
-                }
-            }
-            editor.apply()
-        }
+        fun collapseKey(projectId: String) = booleanPreferencesKey("collapsed_$projectId")
     }
 
     override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
         val projectId = parameters[ProjectIdKey] ?: return
 
-        // 1. Toggle local collapse state (synchronous — guaranteed before updateAll reads it)
-        val wasCollapsed = isCollapsed(context, projectId)
-        val newCollapsed = !wasCollapsed
-        setCollapsed(context, projectId, newCollapsed)
+        // 1. Toggle collapse in Glance's own DataStore state (atomic with re-render)
+        var newCollapsed = false
+        updateAppWidgetState(context, glanceId) { prefs ->
+            val key = collapseKey(projectId)
+            val current = prefs[key] ?: false
+            newCollapsed = !current
+            prefs[key] = newCollapsed
+        }
 
-        // 2. Re-render widget — provideGlance will read the updated pref
-        CasuallyWidget().updateAll(context)
+        // 2. Re-render this specific widget instance
+        CasuallyWidget().update(context, glanceId)
 
         // 3. Fire-and-forget: persist to server in background
         val workData = workDataOf(

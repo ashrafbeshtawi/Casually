@@ -4,12 +4,14 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.datastore.preferences.core.Preferences
 import androidx.glance.*
 import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionParametersOf
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.*
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.action.actionStartActivity as actionStartActivityIntent
 import androidx.glance.appwidget.lazy.LazyColumn
@@ -68,9 +70,16 @@ class CasuallyWidget : GlanceAppWidget() {
             }
         }
 
-        // Seed collapse prefs from API data (only sets defaults, doesn't override local toggles)
+        // Seed Glance state with server collapse values for any projects not yet tracked
         if (data != null) {
-            CollapseActionCallback.syncFromData(context, data.projects)
+            updateAppWidgetState(context, id) { prefs ->
+                for (project in data.projects) {
+                    val key = CollapseActionCallback.collapseKey(project.id)
+                    if (key !in prefs) {
+                        prefs[key] = project.collapsed == true
+                    }
+                }
+            }
         }
 
         val surfaceColor = ColorProvider(
@@ -95,6 +104,9 @@ class CasuallyWidget : GlanceAppWidget() {
         )
 
         provideContent {
+            // Read Glance-managed preferences (reactive — updated atomically by CollapseActionCallback)
+            val glancePrefs = currentState<Preferences>()
+
             GlanceTheme {
                 Column(
                     modifier = GlanceModifier
@@ -194,8 +206,8 @@ class CasuallyWidget : GlanceAppWidget() {
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                     ) {
-                                        // Read collapse state from dedicated prefs (not from cached API data)
-                                        val isCollapsed = CollapseActionCallback.isCollapsed(context, project.id)
+                                        // Read collapse from Glance state (atomic with updates)
+                                        val isCollapsed = glancePrefs[CollapseActionCallback.collapseKey(project.id)] ?: false
                                         val collapseIndicator = if (isCollapsed) "\u25B6" else "\u25BC"
 
                                         // Project header — tap toggles collapse
