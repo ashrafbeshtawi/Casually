@@ -68,6 +68,11 @@ class CasuallyWidget : GlanceAppWidget() {
             }
         }
 
+        // Seed collapse prefs from API data (only sets defaults, doesn't override local toggles)
+        if (data != null) {
+            CollapseActionCallback.syncFromData(context, data.projects)
+        }
+
         val surfaceColor = ColorProvider(
             day = androidx.compose.ui.graphics.Color(WidgetSurfaceLight),
             night = androidx.compose.ui.graphics.Color(WidgetSurfaceDark),
@@ -189,7 +194,8 @@ class CasuallyWidget : GlanceAppWidget() {
                                             .fillMaxWidth()
                                             .padding(vertical = 4.dp),
                                     ) {
-                                        val isCollapsed = project.collapsed == true
+                                        // Read collapse state from dedicated prefs (not from cached API data)
+                                        val isCollapsed = CollapseActionCallback.isCollapsed(context, project.id)
                                         val collapseIndicator = if (isCollapsed) "\u25B6" else "\u25BC"
 
                                         // Project header — tap toggles collapse
@@ -199,7 +205,6 @@ class CasuallyWidget : GlanceAppWidget() {
                                                 .clickable(actionRunCallback<CollapseActionCallback>(
                                                     actionParametersOf(
                                                         CollapseActionCallback.ProjectIdKey to project.id,
-                                                        CollapseActionCallback.CurrentCollapsedKey to isCollapsed,
                                                     )
                                                 )),
                                             verticalAlignment = Alignment.CenterVertically,
