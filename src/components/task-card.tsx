@@ -155,9 +155,12 @@ export function TaskCard({
         </p>
       )}
 
-      {/* Description preview (only in default variant) */}
-      {!minimal && variant !== 'compact' && description && (
-        <p className="text-muted-foreground mt-1.5 line-clamp-2 text-sm">
+      {/* Description preview */}
+      {!minimal && description && (
+        <p className={cn(
+          "text-muted-foreground line-clamp-2",
+          variant === 'compact' ? 'mt-0.5 text-xs' : 'mt-1.5 text-sm'
+        )}>
           {description}
         </p>
       )}

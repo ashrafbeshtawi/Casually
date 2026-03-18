@@ -1,11 +1,15 @@
 package com.casually.app.ui.achievements
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -15,7 +19,17 @@ import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.casually.app.domain.model.Priority
+import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
+
+private data class AchievementGroup(
+    val id: String,
+    val title: String,
+    val emoji: String?,
+    val priority: Priority,
+    val tasks: List<ShortRunningTask>,
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -23,6 +37,7 @@ fun AchievementsScreen(
     viewModel: AchievementsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var expandedProjects by remember { mutableStateOf<Set<String>>(emptySet()) }
 
     when {
         uiState.error != null -> ErrorScreen(
@@ -35,6 +50,28 @@ fun AchievementsScreen(
             onRefresh = { viewModel.refresh() },
         ) {
             val hasAnything = uiState.doneProjects.isNotEmpty() || uiState.tasksByProject.isNotEmpty()
+
+            // Merge both types into a single list of groups
+            val groups = buildList {
+                uiState.doneProjects.forEach { project ->
+                    add(AchievementGroup(
+                        id = project.id,
+                        title = project.title,
+                        emoji = project.emoji,
+                        priority = project.priority,
+                        tasks = uiState.childrenByProject[project.id] ?: emptyList(),
+                    ))
+                }
+                uiState.tasksByProject.forEach { group ->
+                    add(AchievementGroup(
+                        id = "group-${group.projectId}",
+                        title = group.projectTitle,
+                        emoji = group.projectEmoji,
+                        priority = group.tasks.firstOrNull()?.priority ?: Priority.MEDIUM,
+                        tasks = group.tasks,
+                    ))
+                }
+            }
 
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
@@ -67,91 +104,76 @@ fun AchievementsScreen(
                     }
                 }
 
-                // Done projects as container cards (matching dashboard style)
-                if (uiState.doneProjects.isNotEmpty()) {
-                    item(key = "projects-header") {
-                        Text(
-                            "PROJECTS",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp),
-                        )
-                    }
+                groups.forEach { group ->
+                    val isExpanded = expandedProjects.contains(group.id)
 
-                    uiState.doneProjects.forEach { project ->
-                        val children = uiState.childrenByProject[project.id] ?: emptyList()
-
-                        item(key = "project-${project.id}") {
-                            Card(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .drawBehind {
-                                        drawLine(
-                                            color = project.priority.color,
-                                            start = Offset(0f, 0f),
-                                            end = Offset(0f, size.height),
-                                            strokeWidth = 8f,
-                                        )
-                                    },
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(
-                                    containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                                ),
-                                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                            ) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier.padding(
+                    item(key = "group-${group.id}") {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp)
+                                .drawBehind {
+                                    drawLine(
+                                        color = group.priority.color,
+                                        start = Offset(0f, 0f),
+                                        end = Offset(0f, size.height),
+                                        strokeWidth = 8f,
+                                    )
+                                },
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                            ),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        ) {
+                            Column(modifier = Modifier.animateContentSize()) {
+                                Row(
+                                    modifier = Modifier
+                                        .clickable {
+                                            expandedProjects = if (isExpanded)
+                                                expandedProjects - group.id
+                                            else
+                                                expandedProjects + group.id
+                                        }
+                                        .padding(
                                             start = 12.dp, end = 12.dp,
-                                            top = 10.dp,
-                                            bottom = if (children.isEmpty()) 10.dp else 4.dp,
+                                            top = 10.dp, bottom = 10.dp,
                                         ),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        if (project.emoji != null) {
-                                            Text(project.emoji, style = MaterialTheme.typography.titleMedium)
-                                            Spacer(Modifier.width(6.dp))
-                                        }
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Icon(
+                                        if (isExpanded) Icons.Default.KeyboardArrowDown
+                                        else Icons.Default.KeyboardArrowRight,
+                                        contentDescription = if (isExpanded) "Collapse" else "Expand",
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                    Spacer(Modifier.width(4.dp))
+                                    if (group.emoji != null) {
+                                        Text(group.emoji, style = MaterialTheme.typography.titleMedium)
+                                        Spacer(Modifier.width(6.dp))
+                                    }
+                                    Text(
+                                        group.title,
+                                        style = MaterialTheme.typography.titleSmall,
+                                        modifier = Modifier.weight(1f),
+                                    )
+                                    if (group.tasks.isNotEmpty()) {
                                         Text(
-                                            project.title,
-                                            style = MaterialTheme.typography.titleSmall,
-                                            modifier = Modifier.weight(1f),
+                                            "${group.tasks.size} done",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
-                                        if (children.isNotEmpty()) {
-                                            Text(
-                                                "${children.size} done",
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
                                     }
                                 }
                             }
                         }
+                    }
 
-                        // Done children under each project
-                        items(children, key = { it.id }) { task ->
+                    if (isExpanded) {
+                        items(group.tasks, key = { it.id }) { task ->
                             TaskRow(task = task, minimal = true)
                         }
-                    }
-                }
-
-                // Done tasks from non-done projects, grouped by project
-                uiState.tasksByProject.forEach { group ->
-                    val label = if (group.projectEmoji != null) "${group.projectEmoji} ${group.projectTitle}" else group.projectTitle
-
-                    item(key = "group-header-${group.projectId}") {
-                        Text(
-                            label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(top = 16.dp, bottom = 4.dp),
-                        )
-                    }
-
-                    items(group.tasks, key = { it.id }) { task ->
-                        TaskRow(task = task, minimal = true)
                     }
                 }
             }

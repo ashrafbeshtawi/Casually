@@ -56,8 +56,11 @@ class WidgetDataProvider(private val context: Context) {
             val projects = moshi.adapter<List<WidgetProject>>(projectType).fromJson(projectsJson) ?: emptyList()
             val tasks = moshi.adapter<List<WidgetTask>>(taskType).fromJson(tasksJson) ?: emptyList()
 
+            val priorityOrder = mapOf("HIGHEST" to 0, "HIGH" to 1, "MEDIUM" to 2, "LOW" to 3, "LOWEST" to 4)
+            val sortedProjects = projects.sortedBy { priorityOrder[it.priority] ?: 2 }
             val tasksByProject = tasks.groupBy { it.parentId }
-            WidgetData(projects, tasksByProject)
+                .mapValues { (_, v) -> v.sortedBy { priorityOrder[it.priority] ?: 2 } }
+            WidgetData(sortedProjects, tasksByProject)
         } catch (e: Exception) {
             null
         }

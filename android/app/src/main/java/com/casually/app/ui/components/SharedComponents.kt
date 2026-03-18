@@ -88,8 +88,6 @@ fun ProjectHeader(
     onChangePriority: (Priority) -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onMoveUp: () -> Unit = {},
-    onMoveDown: () -> Unit = {},
 ) {
     val borderColor = project.priority.color
     val chevronRotation by animateFloatAsState(
@@ -204,19 +202,6 @@ fun ProjectHeader(
                         onDismissRequest = { showMenu = false },
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Move up") },
-                            onClick = { showMenu = false; onMoveUp() },
-                            leadingIcon = { Icon(Icons.Default.KeyboardArrowUp, null, Modifier.size(18.dp)) },
-                            enabled = !isFirst,
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Move down") },
-                            onClick = { showMenu = false; onMoveDown() },
-                            leadingIcon = { Icon(Icons.Default.KeyboardArrowDown, null, Modifier.size(18.dp)) },
-                            enabled = !isLast,
-                        )
-                        HorizontalDivider()
-                        DropdownMenuItem(
                             text = { Text("Add task") },
                             onClick = { showMenu = false; onAddTask() },
                             leadingIcon = { Icon(Icons.Default.Add, null, Modifier.size(18.dp)) },
@@ -296,8 +281,8 @@ fun TaskRow(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
+        Column(modifier = Modifier.padding(start = 10.dp, end = if (minimal) 12.dp else 4.dp, top = 8.dp, bottom = 8.dp)) {
         Row(
-            modifier = Modifier.padding(start = 10.dp, end = if (minimal) 12.dp else 4.dp, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (task.emoji != null) {
@@ -400,6 +385,16 @@ fun TaskRow(
                     }
                 }
             }
+        }
+        if (!minimal && task.description != null) {
+            Text(
+                task.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         }
     }
 }

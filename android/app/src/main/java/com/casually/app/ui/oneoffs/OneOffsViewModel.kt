@@ -7,6 +7,7 @@ import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
+import com.casually.app.domain.model.sortedByPriority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -53,7 +54,7 @@ class OneOffsViewModel @Inject constructor(
                 val project = allProjects.find { it.title == "One-Off Tasks" }
                 val tasks = if (project != null) {
                     val detail = taskRepository.getLongTask(project.id)
-                    detail.children ?: emptyList()
+                    (detail.children ?: emptyList()).sortedByPriority { it.priority }
                 } else {
                     emptyList()
                 }
@@ -74,7 +75,7 @@ class OneOffsViewModel @Inject constructor(
                 val project = allProjects.find { it.title == "One-Off Tasks" }
                 val tasks = if (project != null) {
                     val detail = taskRepository.getLongTask(project.id)
-                    detail.children ?: emptyList()
+                    (detail.children ?: emptyList()).sortedByPriority { it.priority }
                 } else {
                     emptyList()
                 }

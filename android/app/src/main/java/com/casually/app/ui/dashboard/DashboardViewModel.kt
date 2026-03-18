@@ -6,8 +6,8 @@ import androidx.lifecycle.viewModelScope
 import com.casually.app.data.repository.TaskRepository
 import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.Priority
-import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
+import com.casually.app.domain.model.sortedByPriority
 import com.casually.app.widget.WidgetRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -20,13 +20,8 @@ import javax.inject.Inject
 data class DashboardUiState(
     val isLoading: Boolean = true,
     val projects: List<LongRunningTask> = emptyList(),
-    val childrenByProject: Map<String, List<ShortRunningTask>> = emptyMap(),
-    val loadingChildren: Set<String> = emptySet(),
-    val expandedProjects: Set<String> = emptySet(),
     val projectStateFilter: String = "ACTIVE",
-    val taskStateFilter: String = "ACTIVE",
     val recentlyChangedProjectIds: Set<String> = emptySet(),
-    val recentlyChangedTaskIds: Set<String> = emptySet(),
     val error: String? = null,
 )
 
@@ -61,11 +56,8 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val projects = taskRepository.getLongTasks()
-                val expanded = projects.filter { !it.collapsed }.map { it.id }.toSet()
-                _uiState.value = _uiState.value.copy(projects = projects, expandedProjects = expanded)
-                for (id in expanded) {
-                    fetchChildren(id)
-                }
+                    .sortedByPriority { it.priority }
+                _uiState.value = _uiState.value.copy(projects = projects)
             } catch (_: Exception) {}
         }
     }
@@ -75,16 +67,11 @@ class DashboardViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val projects = taskRepository.getLongTasks()
-                val expanded = projects.filter { !it.collapsed }.map { it.id }.toSet()
+                    .sortedByPriority { it.priority }
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     projects = projects,
-                    expandedProjects = expanded,
                 )
-                // Re-fetch children for expanded projects
-                for (id in expanded) {
-                    fetchChildren(id)
-                }
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
@@ -96,175 +83,6 @@ class DashboardViewModel @Inject constructor(
 
     fun setProjectFilter(filter: String) {
         _uiState.value = _uiState.value.copy(projectStateFilter = filter)
-    }
-
-    fun setTaskFilter(filter: String) {
-        _uiState.value = _uiState.value.copy(taskStateFilter = filter)
-    }
-
-    fun toggleProject(projectId: String) {
-        val expanded = _uiState.value.expandedProjects.toMutableSet()
-        val wasExpanded = expanded.contains(projectId)
-        if (wasExpanded) {
-            expanded.remove(projectId)
-        } else {
-            expanded.add(projectId)
-            if (!_uiState.value.childrenByProject.containsKey(projectId)) {
-                fetchChildren(projectId)
-            }
-        }
-        _uiState.value = _uiState.value.copy(expandedProjects = expanded)
-        viewModelScope.launch {
-            try {
-                taskRepository.updateLongTask(projectId, collapsed = wasExpanded)
-                refreshWidget()
-            } catch (_: Exception) {}
-        }
-    }
-
-    private fun fetchChildren(projectId: String) {
-        viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(
-                loadingChildren = _uiState.value.loadingChildren + projectId
-            )
-            try {
-                val project = taskRepository.getLongTask(projectId)
-                val children = project.children ?: emptyList()
-                _uiState.value = _uiState.value.copy(
-                    childrenByProject = _uiState.value.childrenByProject + (projectId to children),
-                    loadingChildren = _uiState.value.loadingChildren - projectId,
-                )
-            } catch (_: Exception) {
-                _uiState.value = _uiState.value.copy(
-                    loadingChildren = _uiState.value.loadingChildren - projectId,
-                )
-            }
-        }
-    }
-
-    fun refreshProject(projectId: String) {
-        fetchChildren(projectId)
-    }
-
-    // Task actions (optimistic)
-    fun changeTaskState(taskId: String, projectId: String, state: String) {
-        val newState = TaskState.valueOf(state)
-        _uiState.value = _uiState.value.copy(
-            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
-                if (pid == projectId) tasks.map { if (it.id == taskId) it.copy(state = newState) else it }
-                else tasks
-            },
-            recentlyChangedTaskIds = _uiState.value.recentlyChangedTaskIds + taskId,
-        )
-        viewModelScope.launch {
-            delay(1200)
-            _uiState.value = _uiState.value.copy(
-                recentlyChangedTaskIds = _uiState.value.recentlyChangedTaskIds - taskId,
-            )
-        }
-        viewModelScope.launch {
-            try {
-                taskRepository.changeShortTaskState(taskId, state)
-                refreshProjectList()
-            } catch (_: Exception) { refresh() }
-        }
-    }
-
-    fun changeTaskPriority(taskId: String, projectId: String, priority: String) {
-        val newPriority = Priority.valueOf(priority)
-        _uiState.value = _uiState.value.copy(
-            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
-                if (pid == projectId) tasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it }
-                else tasks
-            }
-        )
-        viewModelScope.launch {
-            try {
-                taskRepository.updateShortTask(taskId, priority = priority)
-            } catch (_: Exception) { refresh() }
-        }
-    }
-
-    fun editTask(taskId: String, projectId: String, title: String, description: String?, emoji: String?, priority: String) {
-        viewModelScope.launch {
-            try {
-                taskRepository.updateShortTask(taskId, title = title, description = description, emoji = emoji, priority = priority)
-                fetchChildren(projectId)
-            } catch (_: Exception) {}
-        }
-    }
-
-    fun deleteTask(taskId: String, projectId: String) {
-        _uiState.value = _uiState.value.copy(
-            childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
-                if (pid == projectId) tasks.filter { it.id != taskId } else tasks
-            }
-        )
-        viewModelScope.launch {
-            try {
-                taskRepository.deleteShortTask(taskId)
-                refreshProjectList()
-            } catch (_: Exception) { refresh() }
-        }
-    }
-
-    fun moveTask(taskId: String, fromProjectId: String, toProjectId: String) {
-        viewModelScope.launch {
-            try {
-                taskRepository.moveShortTask(taskId, toProjectId)
-                fetchChildren(fromProjectId)
-                if (_uiState.value.expandedProjects.contains(toProjectId)) {
-                    fetchChildren(toProjectId)
-                }
-                refreshProjectList()
-            } catch (_: Exception) {}
-        }
-    }
-
-    fun createTask(parentId: String, title: String, description: String?, emoji: String?, priority: String) {
-        viewModelScope.launch {
-            try {
-                taskRepository.createShortTask(parentId, title, description, emoji, priority)
-                fetchChildren(parentId)
-                refreshProjectList()
-            } catch (_: Exception) {}
-        }
-    }
-
-    fun moveProjectUp(projectId: String) {
-        val projects = _uiState.value.projects.toMutableList()
-        val index = projects.indexOfFirst { it.id == projectId }
-        if (index <= 0) return
-        val other = projects[index - 1]
-        val current = projects[index]
-        projects[index - 1] = current
-        projects[index] = other
-        _uiState.value = _uiState.value.copy(projects = projects)
-        viewModelScope.launch {
-            try {
-                taskRepository.updateLongTask(current.id, order = index - 1)
-                taskRepository.updateLongTask(other.id, order = index)
-                refreshWidget()
-            } catch (_: Exception) { refresh() }
-        }
-    }
-
-    fun moveProjectDown(projectId: String) {
-        val projects = _uiState.value.projects.toMutableList()
-        val index = projects.indexOfFirst { it.id == projectId }
-        if (index < 0 || index >= projects.size - 1) return
-        val other = projects[index + 1]
-        val current = projects[index]
-        projects[index + 1] = current
-        projects[index] = other
-        _uiState.value = _uiState.value.copy(projects = projects)
-        viewModelScope.launch {
-            try {
-                taskRepository.updateLongTask(current.id, order = index + 1)
-                taskRepository.updateLongTask(other.id, order = index)
-                refreshWidget()
-            } catch (_: Exception) { refresh() }
-        }
     }
 
     // Project actions (optimistic)
@@ -295,7 +113,7 @@ class DashboardViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             projects = _uiState.value.projects.map {
                 if (it.id == projectId) it.copy(priority = newPriority) else it
-            }
+            }.sortedByPriority { it.priority }
         )
         viewModelScope.launch {
             try {
@@ -304,20 +122,9 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun editProject(projectId: String, title: String, description: String?, emoji: String?, priority: String) {
-        viewModelScope.launch {
-            try {
-                taskRepository.updateLongTask(projectId, title = title, description = description, emoji = emoji, priority = priority)
-                refreshProjectList()
-            } catch (_: Exception) {}
-        }
-    }
-
     fun deleteProject(projectId: String) {
         _uiState.value = _uiState.value.copy(
             projects = _uiState.value.projects.filter { it.id != projectId },
-            expandedProjects = _uiState.value.expandedProjects - projectId,
-            childrenByProject = _uiState.value.childrenByProject - projectId,
         )
         viewModelScope.launch {
             try {
@@ -340,10 +147,10 @@ class DashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val projects = taskRepository.getLongTasks()
+                    .sortedByPriority { it.priority }
                 _uiState.value = _uiState.value.copy(projects = projects)
             } catch (_: Exception) {}
         }
         refreshWidget()
     }
-
 }

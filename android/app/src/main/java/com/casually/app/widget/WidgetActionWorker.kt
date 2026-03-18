@@ -21,13 +21,6 @@ class WidgetActionWorker(
         val action = inputData.getString("action") ?: return Result.failure()
 
         when (action) {
-            "collapse" -> {
-                // Fire-and-forget server sync — UI already updated via local prefs
-                val projectId = inputData.getString("project_id") ?: return Result.failure()
-                val collapsed = inputData.getBoolean("collapsed", false)
-                provider.patchLongTask(baseUrl, token, projectId, """{"collapsed":$collapsed}""")
-                // Don't save to cache or updateAll — collapse is managed by local prefs
-            }
             "state_change" -> {
                 val itemId = inputData.getString("item_id") ?: return Result.failure()
                 val itemType = inputData.getString("item_type") ?: return Result.failure()

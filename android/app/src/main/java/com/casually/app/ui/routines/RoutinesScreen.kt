@@ -3,15 +3,20 @@ package com.casually.app.ui.routines
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
+import com.casually.app.ui.theme.CasuallyPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,6 +45,7 @@ fun RoutinesScreen(
             isRefreshing = false,
             onRefresh = { viewModel.refresh() },
         ) {
+            Box(modifier = Modifier.fillMaxSize()) {
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
@@ -85,6 +91,23 @@ fun RoutinesScreen(
                         onMove = { moveDialogTarget = task.id },
                     )
                 }
+            }
+
+            // FAB - Add Task
+            val parentId = uiState.projectId
+            if (parentId != null) {
+                FloatingActionButton(
+                    onClick = { onCreateTask(parentId) },
+                    containerColor = CasuallyPurple,
+                    contentColor = Color.White,
+                    shape = RoundedCornerShape(16.dp),
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(16.dp),
+                ) {
+                    Icon(Icons.Default.Add, "Add task")
+                }
+            }
             }
         }
     }

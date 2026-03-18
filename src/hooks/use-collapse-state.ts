@@ -1,37 +1,34 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
-const STORAGE_KEY = 'casually-collapsed'
+function getStoredCollapsed(storageKey: string): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try {
+    const stored = localStorage.getItem(storageKey)
+    if (stored) return new Set(JSON.parse(stored))
+  } catch {
+    // ignore parse errors
+  }
+  return new Set()
+}
 
-export function useCollapseState() {
-  const [collapsed, setCollapsed] = useState<Set<string>>(new Set())
-  const [hydrated, setHydrated] = useState(false)
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        setCollapsed(new Set(JSON.parse(stored)))
-      }
-    } catch {
-      // ignore parse errors
-    }
-    setHydrated(true)
-  }, [])
+export function useCollapseState(storageKey: string = 'casually-collapsed') {
+  const [collapsed, setCollapsed] = useState<Set<string>>(() => getStoredCollapsed(storageKey))
+  const initialized = useRef(typeof window !== 'undefined')
 
   useEffect(() => {
-    if (!hydrated) return
+    if (!initialized.current) return
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify([...collapsed]))
+      localStorage.setItem(storageKey, JSON.stringify([...collapsed]))
     } catch {
       // ignore storage errors
     }
-  }, [collapsed, hydrated])
+  }, [collapsed, storageKey])
 
   const isCollapsed = useCallback(
-    (id: string) => !hydrated || collapsed.has(id),
-    [collapsed, hydrated]
+    (id: string) => collapsed.has(id),
+    [collapsed]
   )
 
   const toggle = useCallback((id: string) => {
@@ -54,5 +51,5 @@ export function useCollapseState() {
     setCollapsed(new Set())
   }, [])
 
-  return { isCollapsed, toggle, collapseAll, expandAll, hydrated }
+  return { isCollapsed, toggle, collapseAll, expandAll }
 }

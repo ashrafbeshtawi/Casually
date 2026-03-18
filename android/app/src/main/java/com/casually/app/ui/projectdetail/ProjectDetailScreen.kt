@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.casually.app.domain.model.TaskState
+import com.casually.app.domain.model.sortedByPriority
 import com.casually.app.ui.components.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -25,6 +26,7 @@ fun ProjectDetailScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showStateDialog by remember { mutableStateOf(false) }
     var taskStateDialogId by remember { mutableStateOf<Pair<String, TaskState>?>(null) }
+    var stateFilter by remember { mutableStateOf("ACTIVE") }
 
     Scaffold(
         topBar = {
@@ -66,6 +68,11 @@ fun ProjectDetailScreen(
             uiState.isLoading -> LoadingScreen(modifier = Modifier.padding(padding))
             uiState.project != null -> {
                 val project = uiState.project!!
+                val allChildren = project.children ?: emptyList()
+                val filteredChildren = if (stateFilter == "ALL") allChildren
+                    else allChildren.filter { it.state.name == stateFilter }
+                val sortedChildren = filteredChildren.sortedByPriority { it.priority }
+
                 LazyColumn(
                     modifier = Modifier.padding(padding),
                     contentPadding = PaddingValues(16.dp),
@@ -98,21 +105,51 @@ fun ProjectDetailScreen(
                             }
                             HorizontalDivider(modifier = Modifier.padding(vertical = 12.dp))
                             Text(
-                                "${project.children?.size ?: 0} tasks",
+                                "${allChildren.size} tasks",
                                 style = MaterialTheme.typography.titleSmall,
                             )
                         }
                     }
 
-                    // Child tasks
-                    val children = project.children ?: emptyList()
-                    items(children, key = { it.id }) { task ->
-                        TaskCard(
-                            task = task,
-                            onClick = {
-                                taskStateDialogId = Pair(task.id, task.state)
-                            },
+                    // Filter chips
+                    item(key = "filters") {
+                        FilterChipRow(
+                            label = "Tasks:",
+                            selectedValue = stateFilter,
+                            options = DEFAULT_FILTER_OPTIONS,
+                            onSelect = { stateFilter = it },
                         )
+                    }
+
+                    // Child tasks sorted by priority
+                    items(sortedChildren, key = { it.id }) { task ->
+                        TaskRow(
+                            task = task,
+                            onChangeState = { newState ->
+                                viewModel.changeTaskState(task.id, newState.name)
+                            },
+                            onChangePriority = { newPriority ->
+                                viewModel.changeTaskPriority(task.id, newPriority.name)
+                            },
+                            onEdit = {},
+                            onDelete = { viewModel.deleteTask(task.id) },
+                            onMove = {},
+                        )
+                    }
+
+                    if (sortedChildren.isEmpty() && allChildren.isNotEmpty()) {
+                        item(key = "empty-filtered") {
+                            Box(
+                                modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "No ${stateFilter.lowercase()} tasks",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }

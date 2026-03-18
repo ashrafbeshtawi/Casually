@@ -3,20 +3,26 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { type Priority, type TaskState } from '@/types'
+import { type Priority, type TaskState, STATE_LABELS, sortByPriority } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { PriorityChanger } from '@/components/priority-changer'
 import { StateChanger } from '@/components/state-changer'
 import { EditTaskDialog } from '@/components/edit-task-dialog'
 import { DeleteTaskButton } from '@/components/delete-task-button'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
-import { SortableList, DragHandle } from '@/components/sortable-list'
 import { MoveTaskButton } from '@/components/move-task-button'
-import { reorderItems } from '@/lib/reorder'
+import { cn } from '@/lib/utils'
 import { ArrowLeft, Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
 
 const PROTECTED_TITLES = ['One-Off Tasks', 'Routines']
+
+const FILTER_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'ALL', label: 'All' },
+  { value: 'ACTIVE', label: STATE_LABELS.ACTIVE },
+  { value: 'WAITING', label: STATE_LABELS.WAITING },
+  { value: 'BLOCKED', label: STATE_LABELS.BLOCKED },
+  { value: 'DONE', label: STATE_LABELS.DONE },
+]
 
 interface Project {
   id: string
@@ -49,6 +55,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
   const [project, setProject] = useState<Project | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [taskStateFilter, setTaskStateFilter] = useState('ACTIVE')
   const router = useRouter()
 
   const fetchProject = useCallback(async () => {
@@ -75,18 +82,6 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
     fetchProject()
   }, [fetchProject])
 
-  async function handleReorder(reordered: Task[]) {
-    if (!project) return
-    const previous = project.children
-    setProject({ ...project, children: reordered })
-    try {
-      await reorderItems(reordered, '/api/tasks/short')
-    } catch {
-      setProject({ ...project, children: previous })
-      toast.error('Failed to reorder tasks')
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -99,7 +94,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
     return (
       <div className="mx-auto max-w-3xl space-y-6">
         <Link
-          href="/"
+          href="/projects"
           className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -114,12 +109,17 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
 
   const isProtected = PROTECTED_TITLES.includes(project.title)
   const children = project.children ?? []
+  const filteredChildren = sortByPriority(
+    taskStateFilter === 'ALL'
+      ? children
+      : children.filter((t) => t.state === taskStateFilter)
+  )
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
       {/* Back navigation */}
       <Link
-        href="/"
+        href="/projects"
         className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-sm transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />
@@ -170,7 +170,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
                 taskType="long"
                 taskTitle={project.title}
                 hasChildren={children.length > 0}
-                redirectTo="/"
+                redirectTo="/projects"
               />
             </div>
           )}
@@ -198,12 +198,30 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
           <CreateShortTermTaskDialog parentId={project.id} onCreated={fetchProject} />
         </div>
 
-        {children.length > 0 ? (
-          <SortableList
-            items={children}
-            getItemId={(t) => t.id}
-            onReorder={handleReorder}
-            renderItem={(task, dragHandleProps) => {
+        {/* Task state filter */}
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Filter:</span>
+          <div className="flex flex-wrap gap-1">
+            {FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setTaskStateFilter(option.value)}
+                className={cn(
+                  'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  taskStateFilter === option.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {filteredChildren.length > 0 ? (
+          <div className="space-y-2">
+            {filteredChildren.map((task) => {
               const blockerName = task.blockedBy
                 ? (task.blockedBy.emoji
                     ? `${task.blockedBy.emoji} ${task.blockedBy.title}`
@@ -211,8 +229,7 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
                 : null
 
               return (
-                <div className="flex items-center gap-1">
-                  <DragHandle {...dragHandleProps} />
+                <div key={task.id} className="flex items-center gap-1">
                   <div className="min-w-0 flex-1">
                     <TaskCard
                       id={task.id}
@@ -235,12 +252,14 @@ export function ProjectDetailView({ projectId }: ProjectDetailViewProps) {
                   />
                 </div>
               )
-            }}
-          />
+            })}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-8">
             <p className="text-muted-foreground text-sm">
-              No tasks yet. Add your first task to this project.
+              {children.length === 0
+                ? 'No tasks yet. Add your first task to this project.'
+                : `No ${STATE_LABELS[taskStateFilter as TaskState].toLowerCase()} tasks.`}
             </p>
           </div>
         )}

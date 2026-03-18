@@ -179,10 +179,8 @@ fun AppNavigation(
                     }
                     composable(BottomNavItem.Projects.route) {
                         DashboardScreen(
+                            onProjectClick = { projectId -> navController.navigate("project/$projectId") },
                             onCreateProject = { showCreateProject = true },
-                            onCreateTask = { parentId -> showCreateTaskForParent = parentId },
-                            onEditProject = { project -> showEditProject = project },
-                            onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
                     }

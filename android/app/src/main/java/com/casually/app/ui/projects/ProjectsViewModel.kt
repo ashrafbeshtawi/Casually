@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.casually.app.data.repository.TaskRepository
 import com.casually.app.domain.model.LongRunningTask
+import com.casually.app.domain.model.sortedByPriority
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +32,7 @@ class ProjectsViewModel @Inject constructor(
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             try {
                 val projects = taskRepository.getLongTasks()
+                    .sortedByPriority { it.priority }
                 _uiState.value = ProjectsUiState(isLoading = false, projects = projects)
             } catch (e: Exception) {
                 _uiState.value = ProjectsUiState(

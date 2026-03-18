@@ -1,68 +1,129 @@
-import { redirect } from 'next/navigation'
-import { prisma } from '@/lib/prisma'
-import { getCurrentUser } from '@/lib/session'
-import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
+'use client'
+
+import { useCallback, useEffect, useState } from 'react'
+import { type Priority, type TaskState, PRIORITY_COLORS, sortByPriority } from '@/types'
 import { TaskCard } from '@/components/task-card'
-import { Trophy, FolderKanban } from 'lucide-react'
+import { Trophy, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 
-// ---------------------------------------------------------------------------
-// Page
-// ---------------------------------------------------------------------------
+interface DoneProject {
+  id: string
+  title: string
+  description: string | null
+  emoji: string | null
+  priority: Priority
+  state: TaskState
+  children: DoneTask[]
+  _count: { children: number }
+}
 
-export default async function AchievementsPage() {
-  const user = await getCurrentUser()
-  if (!user?.id) {
-    redirect('/login')
-  }
+interface DoneTask {
+  id: string
+  title: string
+  description: string | null
+  emoji: string | null
+  priority: Priority
+  state: TaskState
+  parentId: string
+  parent?: { id: string; title: string; emoji: string | null }
+}
 
-  // Fetch all DONE items in parallel
-  const [doneLongRunning, doneShortRunning] = await Promise.all([
-    prisma.longRunningTask.findMany({
-      where: {
-        userId: user.id,
-        state: 'DONE',
-      },
-      include: {
-        _count: {
-          select: { children: true },
-        },
-        children: {
-          where: { state: 'DONE' },
-          orderBy: { updatedAt: 'desc' },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    }),
-    prisma.shortRunningTask.findMany({
-      where: {
-        state: 'DONE',
-        parent: { userId: user.id },
-      },
-      include: {
-        parent: {
-          select: { id: true, title: true, emoji: true },
-        },
-      },
-      orderBy: { updatedAt: 'desc' },
-    }),
-  ])
+interface GroupedTasks {
+  parentId: string
+  parentTitle: string
+  parentEmoji: string | null
+  tasks: DoneTask[]
+}
 
-  // IDs of done projects (to separate their children from orphan tasks)
-  const doneProjectIds = new Set(doneLongRunning.map((p) => p.id))
+export default function AchievementsPage() {
+  const [doneProjects, setDoneProjects] = useState<DoneProject[]>([])
+  const [taskGroups, setTaskGroups] = useState<GroupedTasks[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  // Track expanded projects (empty set = all collapsed by default)
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
 
-  // Group done tasks from non-done projects
-  const tasksByProject = new Map<string, { parent: { id: string; title: string; emoji: string | null }; tasks: typeof doneShortRunning }>()
-  for (const task of doneShortRunning) {
-    if (doneProjectIds.has(task.parent.id)) continue // shown under the project card
-    const existing = tasksByProject.get(task.parent.id)
-    if (existing) {
-      existing.tasks.push(task)
-    } else {
-      tasksByProject.set(task.parent.id, { parent: task.parent, tasks: [task] })
+  const fetchData = useCallback(async () => {
+    try {
+      const [projectsRes, tasksRes] = await Promise.all([
+        fetch('/api/tasks/long?state=DONE'),
+        fetch('/api/tasks/short?state=DONE'),
+      ])
+
+      if (!projectsRes.ok || !tasksRes.ok) throw new Error('Failed to fetch')
+
+      const projects: DoneProject[] = await projectsRes.json()
+      const tasks: DoneTask[] = await tasksRes.json()
+
+      // Fetch children for done projects
+      const projectsWithChildren = await Promise.all(
+        projects.map(async (p) => {
+          try {
+            const res = await fetch(`/api/tasks/long/${p.id}`)
+            if (res.ok) {
+              const data = await res.json()
+              return { ...p, children: (data.children ?? []).filter((c: DoneTask) => c.state === 'DONE') }
+            }
+          } catch {}
+          return { ...p, children: [] }
+        })
+      )
+
+      setDoneProjects(sortByPriority(projectsWithChildren))
+
+      // Group done tasks from non-done projects
+      const doneProjectIds = new Set(projects.map((p) => p.id))
+      const grouped = new Map<string, GroupedTasks>()
+      for (const task of tasks) {
+        if (doneProjectIds.has(task.parentId)) continue
+        const existing = grouped.get(task.parentId)
+        if (existing) {
+          existing.tasks.push(task)
+        } else {
+          grouped.set(task.parentId, {
+            parentId: task.parentId,
+            parentTitle: task.parent?.title ?? 'Unknown',
+            parentEmoji: task.parent?.emoji ?? null,
+            tasks: [task],
+          })
+        }
+      }
+      setTaskGroups(Array.from(grouped.values()))
+
+      setError(null)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load')
+    } finally {
+      setIsLoading(false)
     }
+  }, [])
+
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+      </div>
+    )
   }
 
-  const hasAnyItems = doneLongRunning.length > 0 || doneShortRunning.length > 0
+  if (error) {
+    return (
+      <div className="mx-auto max-w-3xl space-y-8">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight">Achievements</h1>
+          <p className="text-muted-foreground text-sm">All your completed tasks in one place.</p>
+        </div>
+        <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
+          <p className="text-destructive text-sm">{error}</p>
+        </div>
+      </div>
+    )
+  }
+
+  const hasAnyItems = doneProjects.length > 0 || taskGroups.length > 0
 
   return (
     <div className="mx-auto max-w-3xl space-y-8">
@@ -83,95 +144,84 @@ export default async function AchievementsPage() {
         </div>
       ) : (
         <>
-          {/* Completed Projects (dashboard-style container cards) */}
-          {doneLongRunning.length > 0 && (
-            <section className="space-y-3">
-              <div className="flex items-center gap-2">
-                <FolderKanban className="text-muted-foreground h-4 w-4" />
-                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  Projects
-                </h2>
-              </div>
-              <div className="space-y-3">
-                {doneLongRunning.map((project) => {
-                  const borderColor = PRIORITY_COLORS[project.priority as Priority]
-                  const children = project.children ?? []
+          {/* All project groups — both done projects and active projects with done tasks */}
+          <div className="space-y-3">
+            {[
+              ...doneProjects.map((project) => ({
+                id: project.id,
+                title: project.title,
+                emoji: project.emoji,
+                priority: project.priority,
+                tasks: project.children ?? [],
+              })),
+              ...taskGroups.map((group) => ({
+                id: `group-${group.parentId}`,
+                title: group.parentTitle,
+                emoji: group.parentEmoji,
+                priority: (group.tasks[0]?.priority ?? 'MEDIUM') as Priority,
+                tasks: group.tasks,
+              })),
+            ].map((group) => {
+              const borderColor = PRIORITY_COLORS[group.priority]
+              const isExpanded = expandedProjects.has(group.id)
 
-                  return (
-                    <div
-                      key={project.id}
-                      className="bg-card text-card-foreground rounded-lg border shadow-sm border-l-[3px]"
-                      style={{ borderLeftColor: borderColor }}
-                    >
-                      {/* Project header */}
-                      <div className="flex items-center gap-2 px-3 py-2">
-                        {project.emoji && (
-                          <span className="shrink-0 text-sm">{project.emoji}</span>
-                        )}
-                        <span className="truncate text-sm font-medium">
-                          {project.title}
-                        </span>
-                        {children.length > 0 && (
-                          <span className="text-muted-foreground text-xs">
-                            ({children.length} done)
-                          </span>
-                        )}
-                      </div>
+              return (
+                <div
+                  key={group.id}
+                  className="bg-card text-card-foreground rounded-lg border shadow-sm border-l-[3px]"
+                  style={{ borderLeftColor: borderColor }}
+                >
+                  {/* Project header — clickable to toggle */}
+                  <div
+                    className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
+                    onClick={() => {
+                      setExpandedProjects((prev) => {
+                        const next = new Set(prev)
+                        if (next.has(group.id)) next.delete(group.id)
+                        else next.add(group.id)
+                        return next
+                      })
+                    }}
+                  >
+                    {isExpanded ? (
+                      <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    )}
+                    {group.emoji && (
+                      <span className="shrink-0 text-sm">{group.emoji}</span>
+                    )}
+                    <span className="truncate text-sm font-medium">
+                      {group.title}
+                    </span>
+                    {group.tasks.length > 0 && (
+                      <span className="text-muted-foreground text-xs">
+                        ({group.tasks.length} done)
+                      </span>
+                    )}
+                  </div>
 
-                      {/* Done subtasks */}
-                      {children.length > 0 && (
-                        <div className="border-t px-2 py-1.5 space-y-0.5">
-                          {children.map((task) => (
-                            <TaskCard
-                              key={task.id}
-                              id={task.id}
-                              title={task.title}
-                              emoji={task.emoji}
-                              priority={task.priority as Priority}
-                              state={task.state as TaskState}
-                              taskType="short"
-                              minimal
-                              variant="compact"
-                            />
-                          ))}
-                        </div>
-                      )}
+                  {/* Done subtasks — only when expanded */}
+                  {isExpanded && group.tasks.length > 0 && (
+                    <div className="border-t px-2 py-1.5 space-y-0.5">
+                      {group.tasks.map((task) => (
+                        <TaskCard
+                          key={task.id}
+                          id={task.id}
+                          title={task.title}
+                          description={task.description}
+                          emoji={task.emoji}
+                          priority={task.priority as Priority}
+                          state={task.state as TaskState}
+                          variant="compact"
+                        />
+                      ))}
                     </div>
-                  )
-                })}
-              </div>
-            </section>
-          )}
-
-          {/* Done tasks from active projects — grouped by project */}
-          {Array.from(tasksByProject.values()).map(({ parent, tasks }) => {
-            const projectLabel = parent.emoji
-              ? `${parent.emoji} ${parent.title}`
-              : parent.title
-
-            return (
-              <section key={parent.id} className="space-y-3">
-                <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                  {projectLabel}
-                </h3>
-                <div className="space-y-0.5">
-                  {tasks.map((task) => (
-                    <TaskCard
-                      key={task.id}
-                      id={task.id}
-                      title={task.title}
-                      emoji={task.emoji}
-                      priority={task.priority as Priority}
-                      state={task.state as TaskState}
-                      taskType="short"
-                      minimal
-                      variant="compact"
-                    />
-                  ))}
+                  )}
                 </div>
-              </section>
-            )
-          })}
+              )
+            })}
+          </div>
         </>
       )}
     </div>

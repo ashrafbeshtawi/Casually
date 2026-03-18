@@ -8,6 +8,7 @@ import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
+import com.casually.app.domain.model.sortedByPriority
 import com.casually.app.widget.WidgetRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -62,22 +63,19 @@ class ActiveDashboardViewModel @Inject constructor(
                 val activeTasks = taskRepository.getShortTasks(state = "ACTIVE")
                 val tasksByParent = activeTasks.groupBy { it.parentId }
 
-                // All active projects that have at least one active subtask, in server order
+                // All active projects that have at least one active subtask, sorted by priority
                 val activeProjects = allProjects.filter {
                     it.state == TaskState.ACTIVE && (tasksByParent[it.id] ?: emptyList()).isNotEmpty()
-                }
+                }.sortedByPriority { it.priority }
 
                 val childrenByProject = activeProjects.associate { project ->
-                    project.id to (tasksByParent[project.id] ?: emptyList())
+                    project.id to (tasksByParent[project.id] ?: emptyList()).sortedByPriority { it.priority }
                 }
-
-                val collapsed = allProjects.filter { it.collapsed }.map { it.id }.toSet()
 
                 _uiState.value = _uiState.value.copy(
                     isLoading = false,
                     activeProjects = activeProjects,
                     childrenByProject = childrenByProject,
-                    collapsedProjects = collapsed,
                     allProjects = allProjects,
                 )
             } catch (e: Exception) {
@@ -99,18 +97,15 @@ class ActiveDashboardViewModel @Inject constructor(
 
                 val activeProjects = allProjects.filter {
                     it.state == TaskState.ACTIVE && (tasksByParent[it.id] ?: emptyList()).isNotEmpty()
-                }
+                }.sortedByPriority { it.priority }
 
                 val childrenByProject = activeProjects.associate { project ->
-                    project.id to (tasksByParent[project.id] ?: emptyList())
+                    project.id to (tasksByParent[project.id] ?: emptyList()).sortedByPriority { it.priority }
                 }
-
-                val collapsed = allProjects.filter { it.collapsed }.map { it.id }.toSet()
 
                 _uiState.value = _uiState.value.copy(
                     activeProjects = activeProjects,
                     childrenByProject = childrenByProject,
-                    collapsedProjects = collapsed,
                     allProjects = allProjects,
                 )
             } catch (_: Exception) {}
@@ -125,12 +120,7 @@ class ActiveDashboardViewModel @Inject constructor(
             _uiState.value.collapsedProjects + projectId
         }
         _uiState.value = _uiState.value.copy(collapsedProjects = newCollapsed)
-        viewModelScope.launch {
-            try {
-                taskRepository.updateLongTask(projectId, collapsed = !wasCollapsed)
-                refreshWidget()
-            } catch (_: Exception) {}
-        }
+        // No server sync — collapse is local per panel
     }
 
     fun changeTaskState(taskId: String, parentId: String, state: String) {
@@ -156,6 +146,7 @@ class ActiveDashboardViewModel @Inject constructor(
         _uiState.value = _uiState.value.copy(
             childrenByProject = _uiState.value.childrenByProject.mapValues { (pid, tasks) ->
                 if (pid == parentId) tasks.map { if (it.id == taskId) it.copy(priority = newPriority) else it }
+                    .sortedByPriority { it.priority }
                 else tasks
             },
         )

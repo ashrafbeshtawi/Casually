@@ -67,6 +67,17 @@ class ProjectDetailViewModel @Inject constructor(
         }
     }
 
+    fun changeTaskPriority(taskId: String, priority: String) {
+        viewModelScope.launch {
+            try {
+                taskRepository.updateShortTask(taskId, priority = priority)
+                refresh()
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = e.message)
+            }
+        }
+    }
+
     fun deleteTask(taskId: String) {
         viewModelScope.launch {
             try {

@@ -1,14 +1,17 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { type Priority, type TaskState, STATE_LABELS } from '@/types'
+import { useRouter } from 'next/navigation'
+import { type Priority, type TaskState, STATE_LABELS, sortByPriority } from '@/types'
 import { CreateProjectDialog } from '@/components/create-project-dialog'
-import { CollapsibleProjectCard } from '@/components/collapsible-project-card'
-import { SortableList, DragHandle } from '@/components/sortable-list'
-import { reorderItems } from '@/lib/reorder'
+import { PriorityChanger } from '@/components/priority-changer'
+import { StateChanger } from '@/components/state-changer'
+import { EditTaskDialog } from '@/components/edit-task-dialog'
+import { DeleteTaskButton } from '@/components/delete-task-button'
+import { ProgressBar } from '@/components/progress-bar'
 import { cn } from '@/lib/utils'
 import { Loader2 } from 'lucide-react'
-import { toast } from 'sonner'
+import { PRIORITY_COLORS } from '@/types'
 
 const FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'ALL', label: 'All' },
@@ -17,6 +20,8 @@ const FILTER_OPTIONS: Array<{ value: string; label: string }> = [
   { value: 'BLOCKED', label: STATE_LABELS.BLOCKED },
   { value: 'DONE', label: STATE_LABELS.DONE },
 ]
+
+const PROTECTED_TITLES = ['One-Off Tasks', 'Routines']
 
 interface Project {
   id: string
@@ -35,8 +40,7 @@ export function Dashboard() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [projectStateFilter, setProjectStateFilter] = useState('ACTIVE')
-  const [taskStateFilter, setTaskStateFilter] = useState('ACTIVE')
-  const [refreshKey, setRefreshKey] = useState(0)
+  const router = useRouter()
 
   const fetchProjects = useCallback(async () => {
     try {
@@ -44,7 +48,6 @@ export function Dashboard() {
       if (!res.ok) throw new Error('Failed to fetch projects')
       const data = await res.json()
       setAllProjects(data)
-      setRefreshKey((k) => k + 1)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load projects')
@@ -57,99 +60,33 @@ export function Dashboard() {
     fetchProjects()
   }, [fetchProjects])
 
-  const filtered =
+  const filtered = sortByPriority(
     projectStateFilter === 'ALL'
       ? allProjects
       : allProjects.filter((p) => p.state === projectStateFilter)
-
-  async function handleReorder(reordered: Project[]) {
-    const newAll = [...allProjects]
-    for (const project of reordered) {
-      const idx = newAll.findIndex((p) => p.id === project.id)
-      if (idx !== -1) newAll[idx] = project
-    }
-    setAllProjects(newAll)
-
-    try {
-      await reorderItems(reordered, '/api/tasks/long')
-      fetchProjects()
-    } catch {
-      fetchProjects()
-      toast.error('Failed to reorder projects')
-    }
-  }
-
-  async function handleToggleCollapse(projectId: string) {
-    const project = allProjects.find((p) => p.id === projectId)
-    if (!project) return
-    const newCollapsed = !project.collapsed
-    setAllProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, collapsed: newCollapsed } : p))
-    )
-    try {
-      await fetch(`/api/tasks/long/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ collapsed: newCollapsed }),
-      })
-    } catch {
-      // revert on failure
-      setAllProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, collapsed: !newCollapsed } : p))
-      )
-    }
-  }
-
-  async function handleMoveProject(fromIndex: number, toIndex: number) {
-    if (toIndex < 0 || toIndex >= filtered.length) return
-    const reordered = [...filtered]
-    const [moved] = reordered.splice(fromIndex, 1)
-    reordered.splice(toIndex, 0, moved)
-    handleReorder(reordered)
-  }
+  )
 
   return (
     <div className="mx-auto max-w-3xl space-y-4">
       {/* Top bar: filters + create */}
       <div className="flex items-center justify-between gap-3">
-        <div className="flex flex-col gap-1.5">
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Projects:</span>
-            <div className="flex flex-wrap gap-1">
-              {FILTER_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setProjectStateFilter(option.value)}
-                  className={cn(
-                    'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    projectStateFilter === option.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Tasks:</span>
-            <div className="flex flex-wrap gap-1">
-              {FILTER_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  onClick={() => setTaskStateFilter(option.value)}
-                  className={cn(
-                    'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
-                    taskStateFilter === option.value
-                      ? 'bg-primary text-primary-foreground'
-                      : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
+        <div className="flex items-center gap-2">
+          <span className="text-muted-foreground text-xs font-medium w-14 shrink-0">Projects:</span>
+          <div className="flex flex-wrap gap-1">
+            {FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setProjectStateFilter(option.value)}
+                className={cn(
+                  'rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors',
+                  projectStateFilter === option.value
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-muted text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
           </div>
         </div>
         <CreateProjectDialog onCreated={fetchProjects} />
@@ -165,36 +102,102 @@ export function Dashboard() {
           <p className="text-destructive text-sm">{error}</p>
         </div>
       ) : filtered.length > 0 ? (
-        <SortableList
-          items={filtered}
-          getItemId={(p) => p.id}
-          onReorder={handleReorder}
-          renderItem={(project, dragHandleProps) => {
-            const index = filtered.indexOf(project)
+        <div className="grid gap-3">
+          {filtered.map((project) => {
+            const isProtected = PROTECTED_TITLES.includes(project.title)
+            const borderColor = PRIORITY_COLORS[project.priority]
+
             return (
-              <CollapsibleProjectCard
-                id={project.id}
-                title={project.title}
-                description={project.description}
-                emoji={project.emoji}
-                priority={project.priority}
-                state={project.state}
-                childCount={project._count.children}
-                blockedBy={project.blockedBy}
-                isCollapsed={project.collapsed}
-                onToggle={() => handleToggleCollapse(project.id)}
-                onActionComplete={fetchProjects}
-                dragHandleProps={dragHandleProps}
-                refreshKey={refreshKey}
-                taskStateFilter={taskStateFilter}
-                isFirst={index === 0}
-                isLast={index === filtered.length - 1}
-                onMoveUp={() => handleMoveProject(index, index - 1)}
-                onMoveDown={() => handleMoveProject(index, index + 1)}
-              />
+              <div
+                key={project.id}
+                className="bg-card text-card-foreground rounded-lg border shadow-sm border-l-[3px] cursor-pointer hover:bg-accent/50 transition-colors"
+                style={{ borderLeftColor: borderColor }}
+                role="button"
+                tabIndex={0}
+                onClick={() => router.push(`/projects/${project.id}`)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    router.push(`/projects/${project.id}`)
+                  }
+                }}
+              >
+                <div className="flex items-center gap-1.5 px-2 py-2 sm:px-3">
+                  <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                    {project.emoji && <span className="shrink-0 text-sm">{project.emoji}</span>}
+                    <span className="truncate text-sm font-medium">{project.title}</span>
+                  </div>
+
+                  <div
+                    className="flex shrink-0 items-center gap-1.5"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
+                    {project._count.children > 0 && (
+                      <ProgressBar
+                        done={0}
+                        total={project._count.children}
+                        priority={project.priority}
+                      />
+                    )}
+
+                    {!isProtected && (
+                      <div className="flex items-center rounded-md bg-muted/50 px-0.5">
+                        <PriorityChanger
+                          taskId={project.id}
+                          currentPriority={project.priority}
+                          taskType="long"
+                          onPriorityChange={fetchProjects}
+                          size="sm"
+                        />
+                        <StateChanger
+                          taskId={project.id}
+                          currentState={project.state}
+                          taskType="long"
+                          hasChildren={project._count.children > 0}
+                          onStateChange={() => fetchProjects()}
+                          size="sm"
+                        />
+                      </div>
+                    )}
+
+                    {!isProtected && (
+                      <div className="flex items-center rounded-md bg-muted/50 px-0.5">
+                        <EditTaskDialog
+                          taskId={project.id}
+                          taskType="long"
+                          defaultValues={{
+                            title: project.title,
+                            description: project.description,
+                            emoji: project.emoji,
+                            priority: project.priority,
+                          }}
+                          onEdited={fetchProjects}
+                          showLabel
+                        />
+                        <DeleteTaskButton
+                          taskId={project.id}
+                          taskType="long"
+                          taskTitle={project.title}
+                          hasChildren={project._count.children > 0}
+                          onDeleted={fetchProjects}
+                          showLabel
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Description */}
+                {project.description && (
+                  <p className="text-muted-foreground px-3 pb-2 text-xs leading-relaxed line-clamp-2">
+                    {project.description}
+                  </p>
+                )}
+              </div>
             )
-          }}
-        />
+          })}
+        </div>
       ) : (
         <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
           <p className="text-muted-foreground text-sm">

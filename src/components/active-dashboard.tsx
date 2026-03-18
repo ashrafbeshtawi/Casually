@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
+import { type Priority, type TaskState, PRIORITY_COLORS, sortByPriority } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { AddTaskDialog } from '@/components/add-task-dialog'
+import { useCollapseState } from '@/hooks/use-collapse-state'
 import { Loader2, ChevronRight, ChevronDown } from 'lucide-react'
 
 interface Project {
@@ -14,7 +15,6 @@ interface Project {
   emoji: string | null
   priority: Priority
   state: TaskState
-  collapsed: boolean
   _count: { children: number }
   children?: Task[]
 }
@@ -37,6 +37,7 @@ export function ActiveDashboard() {
   const [activeShortTasks, setActiveShortTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const { isCollapsed, toggle } = useCollapseState('casually-active-dashboard-collapsed')
 
   const fetchData = useCallback(async () => {
     try {
@@ -64,26 +65,6 @@ export function ActiveDashboard() {
     fetchData()
   }, [fetchData])
 
-  async function handleToggleCollapse(projectId: string) {
-    const project = projects.find((p) => p.id === projectId)
-    if (!project) return
-    const newCollapsed = !project.collapsed
-    setProjects((prev) =>
-      prev.map((p) => (p.id === projectId ? { ...p, collapsed: newCollapsed } : p))
-    )
-    try {
-      await fetch(`/api/tasks/long/${projectId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ collapsed: newCollapsed }),
-      })
-    } catch {
-      setProjects((prev) =>
-        prev.map((p) => (p.id === projectId ? { ...p, collapsed: !newCollapsed } : p))
-      )
-    }
-  }
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -108,9 +89,9 @@ export function ActiveDashboard() {
     tasksByParent.set(task.parentId, list)
   }
 
-  // Show projects that have at least one active subtask, in server order
-  const visibleProjects = projects.filter(
-    (p) => (tasksByParent.get(p.id) ?? []).length > 0
+  // Show projects that have at least one active subtask, sorted by priority
+  const visibleProjects = sortByPriority(
+    projects.filter((p) => (tasksByParent.get(p.id) ?? []).length > 0)
   )
 
   return (
@@ -126,8 +107,9 @@ export function ActiveDashboard() {
         </div>
       ) : (
         visibleProjects.map((project) => {
-          const children = tasksByParent.get(project.id) ?? []
+          const children = sortByPriority(tasksByParent.get(project.id) ?? [])
           const borderColor = PRIORITY_COLORS[project.priority]
+          const collapsed = isCollapsed(project.id)
 
           return (
             <div
@@ -138,9 +120,9 @@ export function ActiveDashboard() {
               {/* Project header */}
               <div
                 className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
-                onClick={() => handleToggleCollapse(project.id)}
+                onClick={() => toggle(project.id)}
               >
-                {project.collapsed ? (
+                {collapsed ? (
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
                   <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -166,7 +148,7 @@ export function ActiveDashboard() {
               </div>
 
               {/* Active subtasks */}
-              {!project.collapsed && children.length > 0 && (
+              {!collapsed && children.length > 0 && (
                 <div className="border-t px-2 py-1.5 space-y-0.5">
                   {children.map((task) => (
                     <TaskCard

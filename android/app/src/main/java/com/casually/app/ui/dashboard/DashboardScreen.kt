@@ -12,23 +12,16 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import com.casually.app.domain.model.LongRunningTask
-import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
 import com.casually.app.ui.theme.CasuallyPurple
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DashboardScreen(
+    onProjectClick: (String) -> Unit,
     onCreateProject: () -> Unit,
-    onCreateTask: (parentId: String) -> Unit,
-    onEditProject: (LongRunningTask) -> Unit,
-    onEditTask: (ShortRunningTask, String) -> Unit,
     refreshTrigger: Int = 0,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -39,22 +32,7 @@ fun DashboardScreen(
         if (refreshTrigger > 0) viewModel.refresh()
     }
 
-    // Refresh data when app resumes from background
-    val lifecycleOwner = LocalLifecycleOwner.current
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            if (event == Lifecycle.Event.ON_RESUME) {
-                viewModel.silentRefresh()
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
-    // Dialogs
-    var moveDialogTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var deleteConfirm by remember { mutableStateOf<Triple<String, String, Boolean>?>(null) }
-    var deleteProjectId by remember { mutableStateOf("") }
+    var deleteConfirm by remember { mutableStateOf<Pair<String, String>?>(null) }
 
     val filtered = if (uiState.projectStateFilter == "ALL") {
         uiState.projects
@@ -77,7 +55,7 @@ fun DashboardScreen(
                     contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
-                    // Two filter rows
+                    // Filter row
                     item(key = "filters") {
                         Column(
                             modifier = Modifier.padding(bottom = 12.dp),
@@ -88,12 +66,6 @@ fun DashboardScreen(
                                 selectedValue = uiState.projectStateFilter,
                                 options = DEFAULT_FILTER_OPTIONS,
                                 onSelect = { viewModel.setProjectFilter(it) },
-                            )
-                            FilterChipRow(
-                                label = "Tasks:",
-                                selectedValue = uiState.taskStateFilter,
-                                options = DEFAULT_FILTER_OPTIONS,
-                                onSelect = { viewModel.setTaskFilter(it) },
                             )
                         }
                     }
@@ -114,82 +86,12 @@ fun DashboardScreen(
                         }
                     }
 
-                    // Project sections
-                    filtered.forEachIndexed { index, project ->
-                        val isExpanded = uiState.expandedProjects.contains(project.id)
-                        val isProtected = project.title in PROTECTED_TITLES
-                        val childCount = project.count?.children ?: 0
-                        val allChildren = uiState.childrenByProject[project.id] ?: emptyList()
-                        val isLoadingChildren = uiState.loadingChildren.contains(project.id)
-
-                        val filteredChildren = if (uiState.taskStateFilter == "ALL") {
-                            allChildren
-                        } else {
-                            allChildren.filter { it.id in uiState.recentlyChangedTaskIds || it.state.name == uiState.taskStateFilter }
-                        }
-
-                        // Project header
-                        item(key = "project-${project.id}") {
-                            ProjectHeader(
-                                project = project,
-                                isExpanded = isExpanded,
-                                childCount = childCount,
-                                isProtected = isProtected,
-                                isFirst = index == 0,
-                                isLast = index == filtered.size - 1,
-                                onToggle = { viewModel.toggleProject(project.id) },
-                                onAddTask = { onCreateTask(project.id) },
-                                onChangeState = { newState -> viewModel.changeProjectState(project.id, newState.name) },
-                                onChangePriority = { newPriority -> viewModel.changeProjectPriority(project.id, newPriority.name) },
-                                onEdit = { onEditProject(project) },
-                                onDelete = { deleteConfirm = Triple(project.id, project.title, true) },
-                                onMoveUp = { viewModel.moveProjectUp(project.id) },
-                                onMoveDown = { viewModel.moveProjectDown(project.id) },
-                            )
-                        }
-
-                        // Expanded children
-                        if (isExpanded) {
-                            if (isLoadingChildren) {
-                                item(key = "loading-${project.id}") {
-                                    LinearProgressIndicator(
-                                        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-                                        color = CasuallyPurple,
-                                    )
-                                }
-                            } else {
-                                items(filteredChildren, key = { it.id }) { task ->
-                                    TaskRow(
-                                        task = task,
-                                        modifier = Modifier.animateItem(),
-                                        onChangeState = { newState -> viewModel.changeTaskState(task.id, project.id, newState.name) },
-                                        onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, project.id, newPriority.name) },
-                                        onEdit = { onEditTask(task, project.id) },
-                                        onDelete = {
-                                            deleteProjectId = project.id
-                                            deleteConfirm = Triple(task.id, task.title, false)
-                                        },
-                                        onMove = { moveDialogTarget = Pair(task.id, project.id) },
-                                    )
-                                }
-
-                                if (filteredChildren.isEmpty()) {
-                                    item(key = "empty-${project.id}") {
-                                        Text(
-                                            if (uiState.taskStateFilter == "ALL") "No tasks yet"
-                                            else "No ${uiState.taskStateFilter.lowercase()} tasks",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            modifier = Modifier.padding(start = 40.dp, top = 4.dp, bottom = 12.dp),
-                                        )
-                                    }
-                                }
-                            }
-
-                            item(key = "spacer-${project.id}") {
-                                Spacer(Modifier.height(8.dp))
-                            }
-                        }
+                    items(filtered, key = { it.id }) { project ->
+                        ProjectCard(
+                            task = project,
+                            onClick = { onProjectClick(project.id) },
+                            modifier = Modifier.padding(vertical = 4.dp),
+                        )
                     }
                 }
             }
@@ -209,29 +111,15 @@ fun DashboardScreen(
         }
     }
 
-    // Move task dialog
-    moveDialogTarget?.let { (taskId, currentParentId) ->
-        MoveTaskDialog(
-            projects = uiState.projects,
-            currentParentId = currentParentId,
-            onDismiss = { moveDialogTarget = null },
-            onConfirm = { targetProjectId ->
-                viewModel.moveTask(taskId, currentParentId, targetProjectId)
-                moveDialogTarget = null
-            },
-        )
-    }
-
     // Delete confirmation
-    deleteConfirm?.let { (id, title, isProject) ->
+    deleteConfirm?.let { (id, title) ->
         AlertDialog(
             onDismissRequest = { deleteConfirm = null },
-            title = { Text("Delete ${if (isProject) "project" else "task"}?") },
+            title = { Text("Delete project?") },
             text = { Text("\"$title\" will be permanently deleted.") },
             confirmButton = {
                 TextButton(onClick = {
-                    if (isProject) viewModel.deleteProject(id)
-                    else viewModel.deleteTask(id, deleteProjectId)
+                    viewModel.deleteProject(id)
                     deleteConfirm = null
                 }) {
                     Text("Delete", color = MaterialTheme.colorScheme.error)

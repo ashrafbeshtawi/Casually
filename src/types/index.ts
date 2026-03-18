@@ -56,3 +56,15 @@ export const PRIORITY_LABELS: Record<Priority, string> = {
   LOW: 'Low',
   LOWEST: 'Lowest',
 }
+
+export const PRIORITY_ORDER: Record<Priority, number> = {
+  HIGHEST: 0,
+  HIGH: 1,
+  MEDIUM: 2,
+  LOW: 3,
+  LOWEST: 4,
+}
+
+export function sortByPriority<T extends { priority: Priority }>(items: T[]): T[] {
+  return [...items].sort((a, b) => PRIORITY_ORDER[a.priority] - PRIORITY_ORDER[b.priority])
+}
