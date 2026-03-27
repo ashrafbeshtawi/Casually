@@ -46,9 +46,10 @@ export async function changeLongRunningTaskState(
 
     await tx.longRunningTask.update({ where: { id: taskId }, data })
 
-    // Cascade: set ALL children to the same state
+    // Cascade: only move children that are currently in the same state as
+    // the project's *old* state. Children in other states stay put.
     await tx.shortRunningTask.updateMany({
-      where: { parentId: taskId },
+      where: { parentId: taskId, state: currentState },
       data: { state: newState },
     })
   })

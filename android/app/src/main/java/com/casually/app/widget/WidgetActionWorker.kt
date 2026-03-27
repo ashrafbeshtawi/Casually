@@ -6,6 +6,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.casually.app.BuildConfig
 import com.casually.app.data.SessionManager
+import kotlinx.coroutines.delay
 
 class WidgetActionWorker(
     private val context: Context,
@@ -25,9 +26,27 @@ class WidgetActionWorker(
                 val itemId = inputData.getString("item_id") ?: return Result.failure()
                 val itemType = inputData.getString("item_type") ?: return Result.failure()
                 val newState = inputData.getString("new_state") ?: return Result.failure()
-                val data = provider.changeState(baseUrl, token, itemId, itemType, newState)
-                if (data != null) {
-                    provider.saveToCache(data)
+
+                // 1. Send the PATCH to the server (does NOT re-fetch)
+                val patchSuccess = provider.patchState(baseUrl, token, itemId, itemType, newState)
+
+                if (!patchSuccess) {
+                    // Server call failed — re-fetch truth from server to fix cache
+                    val freshData = provider.fetchData(baseUrl, token)
+                    if (freshData != null) {
+                        provider.saveToCache(freshData)
+                        CasuallyWidget().updateAll(context)
+                    }
+                    return Result.retry()
+                }
+
+                // 2. Wait for server to settle (cascading state changes, etc.)
+                delay(1000)
+
+                // 3. Re-fetch authoritative data from server
+                val freshData = provider.fetchData(baseUrl, token)
+                if (freshData != null) {
+                    provider.saveToCache(freshData)
                     CasuallyWidget().updateAll(context)
                 }
             }

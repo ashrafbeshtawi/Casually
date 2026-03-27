@@ -1,0 +1,61 @@
+Stop overcomplicating your life. Casually keeps you organized without the overwhelm.
+
+Most productivity apps feel like a second job. They drown you in features, notifications, and guilt. Casually is different. It's task management that respects your time, your attention, and your pace. No pressure. No clutter. Just a clean space to think, plan, and get things done — on your own terms.
+
+PROJECTS THAT MAKE SENSE
+Organize your life into three natural categories:
+
+- Projects: Big goals with multiple steps. Group tasks under projects, track progress, and watch them move from Active to Done.
+- One-Off Tasks: Quick things that don't belong anywhere. Buy groceries. Call the dentist. Done.
+- Routines: The stuff you do regularly. Morning workout. Weekly review. Keep showing up.
+
+Every task flows through smart states — Active, Waiting, Blocked, and Done. You always know what needs your attention right now and what can wait. No more staring at an endless flat list wondering where to start.
+
+PRIORITY SYSTEM THAT HELPS
+Five color-coded priority levels from Highest (red) to Lowest (green) let you spot what matters at a glance. No reading required — just look at the colors. Set dependencies between tasks so blocked items stay out of your way until they're ready.
+
+CHALLENGES — YOUR PERSONAL STREAK TRACKER
+This is where Casually gets fun. Trying to quit a bad habit? Building a new one? Create a Challenge and watch the live timer climb — days, hours, minutes, seconds.
+
+Every streak earns you a league rank:
+
+    Seedling > Bronze > Silver > Gold > Platinum > Diamond > Master > Legend
+
+Start at Seedling on day zero. Hit 3 days and earn Bronze. Push through a week for Silver. Make it to 14 days for Gold. The ranks keep climbing — 30 days for Platinum, 60 for Diamond, 120 for Master. Hit a full year and you become a Legend.
+
+Slip up? No shame. Hit the relapse button, reset your timer, and start climbing again. The point isn't perfection — it's showing up. Every restart is proof you haven't given up.
+
+HOME SCREEN WIDGET
+Your active tasks, right on your home screen. No need to open the app to check what's next.
+
+The widget shows all your active projects with their tasks, color-coded by priority. Tap a project to collapse or expand it — instant, no lag. See progress counts at a glance.
+
+Need to add something quick? The "+" button opens task creation with a project picker. Capture the thought before it's gone. Looks great in both light and dark mode.
+
+ACHIEVEMENTS WALL
+Every task you complete lands in your Achievements — your personal trophy case. Scroll through everything you've accomplished, grouped by project.
+
+On days when it feels like you're not making progress, open Achievements and see the proof. You've done more than you think.
+
+EMOJI EVERYTHING
+Make your tasks personal. Add emojis to projects, tasks, and challenges. Your task list should look like yours — not like a corporate spreadsheet.
+
+BUILT FOR FOCUS
+Casually doesn't send push notifications begging you to come back. There are no premium tiers hiding basic features behind a paywall.
+
+What you get:
+- Clean, minimal design that stays out of your way
+- Full dark mode that actually looks good
+- Priority color coding visible everywhere
+- Collapsible project views so you see only what matters
+- Syncs seamlessly between web and Android
+- No subscriptions. No ads. No dark patterns.
+
+WHO IS CASUALLY FOR?
+- Students juggling coursework, projects, and habits
+- Freelancers who need structure without corporate overhead
+- Anyone building better habits with the streak tracker
+- People who've tried complex tools and want something simpler
+- Anyone who believes productivity shouldn't feel stressful
+
+Built for people who want to get things done — casually.

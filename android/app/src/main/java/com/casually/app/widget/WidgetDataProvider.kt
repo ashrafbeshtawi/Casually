@@ -79,10 +79,9 @@ class WidgetDataProvider(private val context: Context) {
     }
 
     /**
-     * Change the state of a project (long) or task (short) and re-fetch all data.
-     * @param type "long" or "short"
+     * Send state change PATCH to server. Returns true if the server accepted it.
      */
-    fun changeState(baseUrl: String, sessionToken: String, id: String, type: String, newState: String): WidgetData? {
+    fun patchState(baseUrl: String, sessionToken: String, id: String, type: String, newState: String): Boolean {
         return try {
             val json = """{"state":"$newState"}"""
             val body = json.toRequestBody("application/json".toMediaType())
@@ -92,12 +91,11 @@ class WidgetDataProvider(private val context: Context) {
                 .patch(body)
                 .build()
             val response = client.newCall(request).execute()
+            val success = response.isSuccessful
             response.close()
-
-            // Re-fetch all data after state change
-            fetchData(baseUrl, sessionToken)
+            success
         } catch (e: Exception) {
-            null
+            false
         }
     }
 
@@ -131,7 +129,14 @@ class WidgetDataProvider(private val context: Context) {
         val prefs = context.getSharedPreferences("widget_cache", Context.MODE_PRIVATE)
         val json = prefs.getString("data", null) ?: return null
         return try {
-            moshi.adapter(WidgetData::class.java).fromJson(json)
+            val data = moshi.adapter(WidgetData::class.java).fromJson(json) ?: return null
+            val priorityOrder = mapOf("HIGHEST" to 0, "HIGH" to 1, "MEDIUM" to 2, "LOW" to 3, "LOWEST" to 4)
+            WidgetData(
+                projects = data.projects.sortedBy { priorityOrder[it.priority] ?: 2 },
+                tasksByProject = data.tasksByProject.mapValues { (_, v) ->
+                    v.sortedBy { priorityOrder[it.priority] ?: 2 }
+                },
+            )
         } catch (e: Exception) {
             null
         }

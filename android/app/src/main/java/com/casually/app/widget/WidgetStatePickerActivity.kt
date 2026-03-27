@@ -87,7 +87,9 @@ class WidgetStatePickerActivity : ComponentActivity() {
             CasuallyWidget().updateAll(applicationContext)
         }
 
-        // Fire background work that survives Activity destruction
+        // Fire background work that survives Activity destruction.
+        // Use unique work so a second tap doesn't duplicate, and to prevent
+        // a periodic refresh from racing with this state change.
         val workData = workDataOf(
             "action" to "state_change",
             "item_id" to id,
@@ -98,7 +100,8 @@ class WidgetStatePickerActivity : ComponentActivity() {
             .setInputData(workData)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .build()
-        WorkManager.getInstance(applicationContext).enqueue(request)
+        WorkManager.getInstance(applicationContext)
+            .enqueueUniqueWork("widget_state_$id", ExistingWorkPolicy.REPLACE, request)
     }
 }
 

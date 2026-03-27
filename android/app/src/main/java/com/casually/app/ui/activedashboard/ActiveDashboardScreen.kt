@@ -15,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -23,6 +24,14 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.ui.components.*
 import com.casually.app.ui.theme.CasuallyPurple
+
+private val PROTECTED_TITLES = listOf("One-Off Tasks", "Routines")
+
+private enum class DashboardTab(val label: String) {
+    ONE_OFFS("One-Offs"),
+    PROJECTS("Projects"),
+    ROUTINES("Routines"),
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,6 +43,7 @@ fun ActiveDashboardScreen(
     viewModel: ActiveDashboardViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var activeTab by remember { mutableStateOf(DashboardTab.ONE_OFFS) }
 
     LaunchedEffect(refreshTrigger) {
         if (refreshTrigger > 0) viewModel.refresh()
@@ -51,7 +61,15 @@ fun ActiveDashboardScreen(
     }
 
     var moveDialogTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
-    var deleteConfirm by remember { mutableStateOf<Triple<String, String, String>?>(null) } // taskId, title, parentId
+    var deleteConfirm by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+
+    val filteredProjects = uiState.activeProjects.filter { project ->
+        when (activeTab) {
+            DashboardTab.ONE_OFFS -> project.title == "One-Off Tasks"
+            DashboardTab.ROUTINES -> project.title == "Routines"
+            DashboardTab.PROJECTS -> project.title !in PROTECTED_TITLES
+        }
+    }
 
     when {
         uiState.error != null -> ErrorScreen(
@@ -68,7 +86,31 @@ fun ActiveDashboardScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                if (uiState.activeProjects.isEmpty()) {
+                // Tabs
+                item(key = "tabs") {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        DashboardTab.entries.forEach { tab ->
+                            val isSelected = tab == activeTab
+                            Surface(
+                                onClick = { activeTab = tab },
+                                shape = RoundedCornerShape(20.dp),
+                                color = if (isSelected) CasuallyPurple else MaterialTheme.colorScheme.surfaceContainer,
+                            ) {
+                                Text(
+                                    tab.label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = if (isSelected) Color.White else MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (filteredProjects.isEmpty()) {
                     item(key = "empty") {
                         Box(
                             modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp),
@@ -83,8 +125,7 @@ fun ActiveDashboardScreen(
                     }
                 }
 
-                // All projects in server order
-                uiState.activeProjects.forEach { project ->
+                filteredProjects.forEach { project ->
                     val children = uiState.childrenByProject[project.id] ?: emptyList()
                     val isCollapsed = uiState.collapsedProjects.contains(project.id)
 
@@ -148,7 +189,6 @@ fun ActiveDashboardScreen(
                         }
                     }
 
-                    // Active children — only when expanded
                     if (!isCollapsed) {
                         items(children, key = { it.id }) { task ->
                             TaskRow(
@@ -177,7 +217,6 @@ fun ActiveDashboardScreen(
         }
     }
 
-    // Move task dialog
     moveDialogTarget?.let { (taskId, currentParentId) ->
         MoveTaskDialog(
             projects = uiState.allProjects,
@@ -190,7 +229,6 @@ fun ActiveDashboardScreen(
         )
     }
 
-    // Delete confirmation
     deleteConfirm?.let { (taskId, title, parentId) ->
         AlertDialog(
             onDismissRequest = { deleteConfirm = null },
