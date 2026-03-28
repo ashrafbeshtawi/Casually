@@ -140,6 +140,20 @@ class CasuallyWidget : GlanceAppWidget() {
                             modifier = GlanceModifier.defaultWeight(),
                         )
                         if (sessionManager.isLoggedIn) {
+                            // Refresh button
+                            Box(
+                                modifier = GlanceModifier
+                                    .cornerRadius(12.dp)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    .clickable(actionRunCallback<WidgetRefreshCallback>()),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    "\uD83D\uDD04",
+                                    style = TextStyle(fontSize = 20.sp),
+                                )
+                            }
+                            // Add button
                             Box(
                                 modifier = GlanceModifier
                                     .cornerRadius(12.dp)
