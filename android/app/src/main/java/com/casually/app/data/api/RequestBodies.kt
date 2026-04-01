@@ -47,3 +47,9 @@ data class CreateChallengeRequest(
     val title: String,
     val emoji: String? = null,
 )
+
+@JsonClass(generateAdapter = true)
+data class UpdateChallengeRequest(
+    val title: String? = null,
+    val emoji: String? = null,
+)

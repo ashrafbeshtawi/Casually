@@ -181,6 +181,7 @@ fun AppNavigation(
                         DashboardScreen(
                             onProjectClick = { projectId -> navController.navigate("project/$projectId") },
                             onCreateProject = { showCreateProject = true },
+                            onEditProject = { project -> showEditProject = project },
                             refreshTrigger = dashboardRefreshTrigger,
                         )
                     }

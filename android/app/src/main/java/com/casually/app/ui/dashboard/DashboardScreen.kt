@@ -22,6 +22,7 @@ import com.casually.app.ui.theme.CasuallyPurple
 fun DashboardScreen(
     onProjectClick: (String) -> Unit,
     onCreateProject: () -> Unit,
+    onEditProject: (com.casually.app.domain.model.LongRunningTask) -> Unit = {},
     refreshTrigger: Int = 0,
     viewModel: DashboardViewModel = hiltViewModel(),
 ) {
@@ -90,6 +91,7 @@ fun DashboardScreen(
                         ProjectCard(
                             task = project,
                             onClick = { onProjectClick(project.id) },
+                            onEdit = { onEditProject(project) },
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }

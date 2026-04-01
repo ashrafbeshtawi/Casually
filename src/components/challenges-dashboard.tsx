@@ -22,7 +22,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Plus, Flame, Loader2, RotateCcw, Trash2 } from 'lucide-react'
+import { Plus, Flame, Loader2, RotateCcw, Trash2, Pencil } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmojiPicker } from '@/components/emoji-picker'
 
@@ -71,10 +71,12 @@ function ChallengeCard({
   challenge,
   onRelapse,
   onDelete,
+  onEdit,
 }: {
   challenge: Challenge
   onRelapse: (id: string) => void
   onDelete: (id: string) => void
+  onEdit: (id: string, title: string, emoji: string | null) => void
 }) {
   const [duration, setDuration] = useState(formatDuration(challenge.startedAt))
   const league = getLeague(challenge.startedAt)
@@ -101,6 +103,7 @@ function ChallengeCard({
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
+          <EditChallengeDialog challenge={challenge} onEdited={onEdit} />
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="ghost" size="icon" className="h-7 w-7 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:text-amber-400 dark:hover:text-amber-300 dark:hover:bg-amber-950" title="Relapse">
@@ -227,6 +230,77 @@ function CreateChallengeDialog({ onCreated }: { onCreated: () => void }) {
   )
 }
 
+function EditChallengeDialog({
+  challenge,
+  onEdited,
+}: {
+  challenge: Challenge
+  onEdited: (id: string, title: string, emoji: string | null) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState(challenge.title)
+  const [emoji, setEmoji] = useState(challenge.emoji ?? '')
+
+  // Reset form when dialog opens
+  useEffect(() => {
+    if (open) {
+      setTitle(challenge.title)
+      setEmoji(challenge.emoji ?? '')
+    }
+  }, [open, challenge.title, challenge.emoji])
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) return
+    onEdited(challenge.id, title.trim(), emoji.trim() || null)
+    setOpen(false)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit">
+          <Pencil className="h-3.5 w-3.5" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit Challenge</DialogTitle>
+        </DialogHeader>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="edit-challenge-title">
+              Title <span className="text-destructive">*</span>
+            </Label>
+            <Input
+              id="edit-challenge-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              required
+              autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Emoji</Label>
+            <EmojiPicker
+              value={emoji || null}
+              onChange={(val) => setEmoji(val ?? '')}
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={!title.trim()}>
+              Save
+            </Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 export function ChallengesDashboard() {
   const [challenges, setChallenges] = useState<Challenge[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -259,6 +333,25 @@ export function ChallengesDashboard() {
       toast.success('Challenge reset')
     } catch {
       toast.error('Failed to reset challenge')
+    }
+  }
+
+  async function handleEdit(id: string, title: string, emoji: string | null) {
+    // Optimistic update
+    setChallenges((prev) => prev.map((c) => (c.id === id ? { ...c, title, emoji } : c)))
+    try {
+      const res = await fetch(`/api/challenges/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, emoji }),
+      })
+      if (!res.ok) throw new Error('Failed to update')
+      const updated: Challenge = await res.json()
+      setChallenges((prev) => prev.map((c) => (c.id === id ? updated : c)))
+      toast.success('Challenge updated')
+    } catch {
+      toast.error('Failed to update challenge')
+      fetchData()
     }
   }
 
@@ -317,6 +410,7 @@ export function ChallengesDashboard() {
               challenge={challenge}
               onRelapse={handleRelapse}
               onDelete={handleDelete}
+              onEdit={handleEdit}
             />
           ))}
         </div>

@@ -1,6 +1,8 @@
 package com.casually.app.widget
 
 import android.content.Context
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
@@ -27,32 +29,41 @@ class WidgetActionWorker(
                 val itemType = inputData.getString("item_type") ?: return Result.failure()
                 val newState = inputData.getString("new_state") ?: return Result.failure()
 
-                // 1. Send the PATCH to the server (does NOT re-fetch)
                 val patchSuccess = provider.patchState(baseUrl, token, itemId, itemType, newState)
 
                 if (!patchSuccess) {
-                    // Server call failed — re-fetch truth from server to fix cache
                     val freshData = provider.fetchData(baseUrl, token)
                     if (freshData != null) {
                         provider.saveToCache(freshData)
+                        clearLoading()
                         CasuallyWidget().updateAll(context)
                     }
                     return Result.retry()
                 }
 
-                // 2. Wait for server to settle (cascading state changes, etc.)
                 delay(1000)
 
-                // 3. Re-fetch authoritative data from server
                 val freshData = provider.fetchData(baseUrl, token)
                 if (freshData != null) {
                     provider.saveToCache(freshData)
-                    CasuallyWidget().updateAll(context)
                 }
+                clearLoading()
+                CasuallyWidget().updateAll(context)
             }
             else -> return Result.failure()
         }
 
         return Result.success()
+    }
+
+    private suspend fun clearLoading() {
+        try {
+            val manager = GlanceAppWidgetManager(context)
+            for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+                updateAppWidgetState(context, glanceId) { prefs ->
+                    prefs[WidgetRefreshCallback.IsLoadingKey] = false
+                }
+            }
+        } catch (_: Exception) {}
     }
 }

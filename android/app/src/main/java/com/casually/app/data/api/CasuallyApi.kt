@@ -77,6 +77,12 @@ interface CasuallyApi {
     @POST("api/challenges")
     suspend fun createChallenge(@Body body: CreateChallengeRequest): Challenge
 
+    @PATCH("api/challenges/{id}")
+    suspend fun updateChallenge(
+        @Path("id") id: String,
+        @Body body: UpdateChallengeRequest,
+    ): Challenge
+
     @DELETE("api/challenges/{id}")
     suspend fun deleteChallenge(@Path("id") id: String): Response<Unit>
 

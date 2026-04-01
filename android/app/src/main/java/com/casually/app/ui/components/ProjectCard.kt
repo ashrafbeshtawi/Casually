@@ -2,6 +2,8 @@ package com.casually.app.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,8 +15,11 @@ import com.casually.app.domain.model.LongRunningTask
 fun ProjectCard(
     task: LongRunningTask,
     onClick: () -> Unit,
+    onEdit: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    val isProtected = task.title in PROTECTED_TITLES
+
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -31,6 +36,14 @@ fun ProjectCard(
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.weight(1f),
                 )
+                if (!isProtected && onEdit != null) {
+                    IconButton(
+                        onClick = { onEdit() },
+                        modifier = Modifier.size(36.dp),
+                    ) {
+                        Icon(Icons.Default.Edit, "Edit project", Modifier.size(18.dp))
+                    }
+                }
             }
             if (task.description != null) {
                 Spacer(Modifier.height(4.dp))

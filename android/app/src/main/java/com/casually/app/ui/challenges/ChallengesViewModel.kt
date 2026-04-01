@@ -74,6 +74,22 @@ class ChallengesViewModel @Inject constructor(
         }
     }
 
+    fun editChallenge(id: String, title: String, emoji: String?) {
+        // Optimistic
+        _uiState.value = _uiState.value.copy(
+            challenges = _uiState.value.challenges.map {
+                if (it.id == id) it.copy(title = title, emoji = emoji) else it
+            },
+        )
+        viewModelScope.launch {
+            try {
+                taskRepository.updateChallenge(id, title, emoji)
+            } catch (_: Exception) {
+                refresh()
+            }
+        }
+    }
+
     fun delete(id: String) {
         _uiState.value = _uiState.value.copy(
             challenges = _uiState.value.challenges.filter { it.id != id },

@@ -61,6 +61,16 @@ class WidgetStatePickerActivity : ComponentActivity() {
     private suspend fun performStateChange(id: String, type: String, newState: String) {
         val provider = WidgetDataProvider(applicationContext)
 
+        // Set loading indicator
+        try {
+            val manager = androidx.glance.appwidget.GlanceAppWidgetManager(applicationContext)
+            for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+                androidx.glance.appwidget.state.updateAppWidgetState(applicationContext, glanceId) { prefs ->
+                    prefs[WidgetRefreshCallback.IsLoadingKey] = true
+                }
+            }
+        } catch (_: Exception) {}
+
         // Optimistic: mutate cache immediately and update widget
         val cached = provider.loadFromCache()
         if (cached != null) {

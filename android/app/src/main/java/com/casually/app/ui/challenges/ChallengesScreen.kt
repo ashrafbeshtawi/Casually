@@ -118,6 +118,7 @@ fun ChallengesScreen(
                             challenge = challenge,
                             onRelapse = { viewModel.relapse(it) },
                             onDelete = { viewModel.delete(it) },
+                            onEdit = { id, title, emoji -> viewModel.editChallenge(id, title, emoji) },
                         )
                     }
 
@@ -180,11 +181,13 @@ private fun ChallengeCard(
     challenge: Challenge,
     onRelapse: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onEdit: (String, String, String?) -> Unit = { _, _, _ -> },
 ) {
     val league = getLeague(challenge.startedAt)
     var duration by remember { mutableStateOf(formatDuration(challenge.startedAt)) }
     var showRelapseDialog by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var showEditDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(challenge.startedAt) {
         while (true) {
@@ -217,6 +220,9 @@ private fun ChallengeCard(
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                }
+                IconButton(onClick = { showEditDialog = true }, modifier = Modifier.size(36.dp)) {
+                    Icon(Icons.Default.Edit, "Edit", Modifier.size(18.dp))
                 }
                 IconButton(onClick = { showRelapseDialog = true }, modifier = Modifier.size(36.dp)) {
                     Icon(Icons.Default.Refresh, "Relapse", Modifier.size(18.dp))
@@ -266,6 +272,47 @@ private fun ChallengeCard(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) { Text("Cancel") }
+            },
+        )
+    }
+
+    if (showEditDialog) {
+        var editTitle by remember { mutableStateOf(challenge.title) }
+        var editEmoji by remember { mutableStateOf(challenge.emoji ?: "") }
+        AlertDialog(
+            onDismissRequest = { showEditDialog = false },
+            title = { Text("Edit Challenge") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        label = { Text("Title") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    OutlinedTextField(
+                        value = editEmoji,
+                        onValueChange = { editEmoji = it },
+                        label = { Text("Emoji (optional)") },
+                        singleLine = true,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        onEdit(challenge.id, editTitle.trim(), editEmoji.trim().ifEmpty { null })
+                        showEditDialog = false
+                    },
+                    enabled = editTitle.isNotBlank(),
+                ) { Text("Save") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEditDialog = false }) { Text("Cancel") }
             },
         )
     }

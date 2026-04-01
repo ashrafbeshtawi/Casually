@@ -84,6 +84,9 @@ class TaskRepository @Inject constructor(
     suspend fun createChallenge(title: String, emoji: String? = null): Challenge =
         api.createChallenge(CreateChallengeRequest(title, emoji))
 
+    suspend fun updateChallenge(id: String, title: String? = null, emoji: String? = null): Challenge =
+        api.updateChallenge(id, UpdateChallengeRequest(title, emoji))
+
     suspend fun deleteChallenge(id: String) { api.deleteChallenge(id) }
 
     suspend fun relapseChallenge(id: String): Challenge = api.relapseChallenge(id)

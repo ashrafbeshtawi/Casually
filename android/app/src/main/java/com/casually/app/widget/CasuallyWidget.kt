@@ -116,6 +116,7 @@ class CasuallyWidget : GlanceAppWidget() {
         provideContent {
             val glancePrefs = currentState<Preferences>()
             val activeTab = glancePrefs[WidgetTabKey] ?: "one-offs"
+            val isLoading = glancePrefs[WidgetRefreshCallback.IsLoadingKey] ?: false
 
             GlanceTheme {
                 Column(
@@ -125,7 +126,7 @@ class CasuallyWidget : GlanceAppWidget() {
                         .padding(12.dp)
                         .cornerRadius(16.dp),
                 ) {
-                    // Header row: title + "+" button
+                    // Header row: title + buttons
                     Row(
                         modifier = GlanceModifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically,
@@ -140,19 +141,25 @@ class CasuallyWidget : GlanceAppWidget() {
                             modifier = GlanceModifier.defaultWeight(),
                         )
                         if (sessionManager.isLoggedIn) {
-                            // Refresh button
+                            // Refresh button (styled like Add)
                             Box(
                                 modifier = GlanceModifier
                                     .cornerRadius(12.dp)
-                                    .padding(horizontal = 8.dp, vertical = 6.dp)
+                                    .background(tabBgColor)
+                                    .padding(horizontal = 14.dp, vertical = 6.dp)
                                     .clickable(actionRunCallback<WidgetRefreshCallback>()),
                                 contentAlignment = Alignment.Center,
                             ) {
                                 Text(
-                                    "\uD83D\uDD04",
-                                    style = TextStyle(fontSize = 20.sp),
+                                    if (isLoading) "\u23F3" else "\u21BB",
+                                    style = TextStyle(
+                                        color = onSurfaceColor,
+                                        fontWeight = FontWeight.Bold,
+                                        fontSize = 18.sp,
+                                    ),
                                 )
                             }
+                            Spacer(modifier = GlanceModifier.width(6.dp))
                             // Add button
                             Box(
                                 modifier = GlanceModifier
@@ -177,6 +184,19 @@ class CasuallyWidget : GlanceAppWidget() {
                                 )
                             }
                         }
+                    }
+
+                    // Loading indicator bar
+                    if (isLoading) {
+                        Spacer(modifier = GlanceModifier.height(4.dp))
+                        Text(
+                            "Syncing\u2026",
+                            style = TextStyle(
+                                color = purpleColor,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                            ),
+                        )
                     }
 
                     Spacer(modifier = GlanceModifier.height(6.dp))

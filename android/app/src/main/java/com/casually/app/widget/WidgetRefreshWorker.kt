@@ -1,6 +1,8 @@
 package com.casually.app.widget
 
 import android.content.Context
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.work.*
 import com.casually.app.BuildConfig
@@ -21,8 +23,19 @@ class WidgetRefreshWorker(
 
         if (data != null) {
             provider.saveToCache(data)
-            CasuallyWidget().updateAll(context)
         }
+
+        // Clear loading flag on all widget instances
+        try {
+            val manager = GlanceAppWidgetManager(context)
+            for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+                updateAppWidgetState(context, glanceId) { prefs ->
+                    prefs[WidgetRefreshCallback.IsLoadingKey] = false
+                }
+            }
+        } catch (_: Exception) {}
+
+        CasuallyWidget().updateAll(context)
 
         return Result.success()
     }
