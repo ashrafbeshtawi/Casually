@@ -16,44 +16,46 @@ class WidgetActionWorker(
 ) : CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
-        val sessionManager = SessionManager(context)
-        val token = sessionManager.sessionToken ?: return Result.success()
-        val provider = WidgetDataProvider(context)
-        val baseUrl = BuildConfig.API_BASE_URL
+        try {
+            val sessionManager = SessionManager(context)
+            val token = sessionManager.sessionToken ?: return Result.success()
+            val provider = WidgetDataProvider(context)
+            val baseUrl = BuildConfig.API_BASE_URL
 
-        val action = inputData.getString("action") ?: return Result.failure()
+            val action = inputData.getString("action") ?: return Result.failure()
 
-        when (action) {
-            "state_change" -> {
-                val itemId = inputData.getString("item_id") ?: return Result.failure()
-                val itemType = inputData.getString("item_type") ?: return Result.failure()
-                val newState = inputData.getString("new_state") ?: return Result.failure()
+            when (action) {
+                "state_change" -> {
+                    val itemId = inputData.getString("item_id") ?: return Result.failure()
+                    val itemType = inputData.getString("item_type") ?: return Result.failure()
+                    val newState = inputData.getString("new_state") ?: return Result.failure()
 
-                val patchSuccess = provider.patchState(baseUrl, token, itemId, itemType, newState)
+                    val patchSuccess = provider.patchState(baseUrl, token, itemId, itemType, newState)
 
-                if (!patchSuccess) {
+                    if (!patchSuccess) {
+                        val freshData = provider.fetchData(baseUrl, token)
+                        if (freshData != null) {
+                            provider.saveToCache(freshData)
+                        }
+                        return Result.retry()
+                    }
+
+                    delay(1000)
+
                     val freshData = provider.fetchData(baseUrl, token)
                     if (freshData != null) {
                         provider.saveToCache(freshData)
-                        clearLoading()
-                        CasuallyWidget().updateAll(context)
                     }
-                    return Result.retry()
                 }
-
-                delay(1000)
-
-                val freshData = provider.fetchData(baseUrl, token)
-                if (freshData != null) {
-                    provider.saveToCache(freshData)
-                }
-                clearLoading()
-                CasuallyWidget().updateAll(context)
+                else -> return Result.failure()
             }
-            else -> return Result.failure()
-        }
 
-        return Result.success()
+            return Result.success()
+        } finally {
+            // ALWAYS clear loading, regardless of success/failure/exception
+            clearLoading()
+            CasuallyWidget().updateAll(context)
+        }
     }
 
     private suspend fun clearLoading() {

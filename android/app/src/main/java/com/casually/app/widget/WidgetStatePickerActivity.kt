@@ -18,11 +18,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.sp
+import com.casually.app.BuildConfig
+import com.casually.app.data.SessionManager
 import com.casually.app.domain.model.TaskState
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
 import androidx.lifecycle.lifecycleScope
-import androidx.work.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class WidgetStatePickerActivity : ComponentActivity() {
 
@@ -58,18 +64,24 @@ class WidgetStatePickerActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun performStateChange(id: String, type: String, newState: String) {
-        val provider = WidgetDataProvider(applicationContext)
-
-        // Set loading indicator
+    private suspend fun setLoading(loading: Boolean) {
         try {
-            val manager = androidx.glance.appwidget.GlanceAppWidgetManager(applicationContext)
+            val manager = GlanceAppWidgetManager(applicationContext)
             for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
-                androidx.glance.appwidget.state.updateAppWidgetState(applicationContext, glanceId) { prefs ->
-                    prefs[WidgetRefreshCallback.IsLoadingKey] = true
+                updateAppWidgetState(applicationContext, glanceId) { prefs ->
+                    prefs[WidgetRefreshCallback.IsLoadingKey] = loading
                 }
             }
+            CasuallyWidget().updateAll(applicationContext)
         } catch (_: Exception) {}
+    }
+
+    private suspend fun performStateChange(id: String, type: String, newState: String) {
+        val provider = WidgetDataProvider(applicationContext)
+        val sessionManager = SessionManager(applicationContext)
+
+        // Show loading
+        setLoading(true)
 
         // Optimistic: mutate cache immediately and update widget
         val cached = provider.loadFromCache()
@@ -97,21 +109,37 @@ class WidgetStatePickerActivity : ComponentActivity() {
             CasuallyWidget().updateAll(applicationContext)
         }
 
-        // Fire background work that survives Activity destruction.
-        // Use unique work so a second tap doesn't duplicate, and to prevent
-        // a periodic refresh from racing with this state change.
-        val workData = workDataOf(
-            "action" to "state_change",
-            "item_id" to id,
-            "item_type" to type,
-            "new_state" to newState,
-        )
-        val request = OneTimeWorkRequestBuilder<WidgetActionWorker>()
-            .setInputData(workData)
-            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
-            .build()
-        WorkManager.getInstance(applicationContext)
-            .enqueueUniqueWork("widget_state_$id", ExistingWorkPolicy.REPLACE, request)
+        // Send HTTP request directly (not via WorkManager)
+        val token = sessionManager.sessionToken
+        val baseUrl = BuildConfig.API_BASE_URL
+
+        if (token != null) {
+            val success = withContext(Dispatchers.IO) {
+                provider.patchState(baseUrl, token, id, type, newState)
+            }
+
+            if (success) {
+                // Wait for server to settle, then re-fetch
+                withContext(Dispatchers.IO) {
+                    delay(1000)
+                    val freshData = provider.fetchData(baseUrl, token)
+                    if (freshData != null) {
+                        provider.saveToCache(freshData)
+                    }
+                }
+            } else {
+                // PATCH failed — re-fetch server truth to fix optimistic cache
+                withContext(Dispatchers.IO) {
+                    val freshData = provider.fetchData(baseUrl, token)
+                    if (freshData != null) {
+                        provider.saveToCache(freshData)
+                    }
+                }
+            }
+        }
+
+        // Always clear loading
+        setLoading(false)
     }
 }
 

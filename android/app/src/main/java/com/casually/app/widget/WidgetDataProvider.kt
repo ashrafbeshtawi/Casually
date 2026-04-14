@@ -122,7 +122,7 @@ class WidgetDataProvider(private val context: Context) {
         val prefs = context.getSharedPreferences("widget_cache", Context.MODE_PRIVATE)
         prefs.edit()
             .putString("data", moshi.adapter(WidgetData::class.java).toJson(data))
-            .apply()
+            .commit()
     }
 
     fun loadFromCache(): WidgetData? {

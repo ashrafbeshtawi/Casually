@@ -1,6 +1,5 @@
 package com.casually.app.ui.activedashboard
 
-import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.casually.app.data.repository.TaskRepository
@@ -9,9 +8,7 @@ import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
 import com.casually.app.domain.model.sortedByPriority
-import com.casually.app.widget.WidgetRefreshWorker
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,12 +27,7 @@ data class ActiveDashboardUiState(
 @HiltViewModel
 class ActiveDashboardViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
-    @ApplicationContext private val appContext: Context,
 ) : ViewModel() {
-
-    private fun refreshWidget() {
-        WidgetRefreshWorker.refreshNow(appContext)
-    }
 
     private val _uiState = MutableStateFlow(ActiveDashboardUiState())
     val uiState = _uiState.asStateFlow()
@@ -134,7 +126,6 @@ class ActiveDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 taskRepository.changeShortTaskState(taskId, state)
-                refreshWidget()
                 delay(1200)
                 silentRefresh()
             } catch (_: Exception) { refresh() }
@@ -166,7 +157,6 @@ class ActiveDashboardViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 taskRepository.deleteShortTask(taskId)
-                refreshWidget()
             } catch (_: Exception) { refresh() }
         }
     }
