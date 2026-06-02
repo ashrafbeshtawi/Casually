@@ -15,21 +15,29 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.unit.dp
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.casually.app.BuildConfig
 import com.casually.app.data.SessionManager
 import com.casually.app.domain.model.TaskState
-import androidx.glance.appwidget.GlanceAppWidgetManager
-import androidx.glance.appwidget.state.updateAppWidgetState
-import androidx.glance.appwidget.updateAll
-import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import androidx.lifecycle.lifecycleScope
 
+/**
+ * Transparent overlay that shows a bottom-sheet-style state picker when the
+ * user taps a task in the widget.
+ *
+ * Flow:
+ *   1. Show picker dialog
+ *   2. On pick → optimistic update (mutate data in Glance state)
+ *   3. PATCH server directly (not via WorkManager)
+ *   4. Re-fetch server truth
+ *   5. Always clear loading
+ */
 class WidgetStatePickerActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -46,13 +54,11 @@ class WidgetStatePickerActivity : ComponentActivity() {
             TaskState.ACTIVE
         }
 
-        val transitions = TaskState.validTransitions(currentState)
-
         setContent {
             StatePickerDialog(
                 itemName = itemName,
                 currentState = currentState,
-                transitions = transitions,
+                transitions = TaskState.validTransitions(currentState),
                 onPick = { picked ->
                     lifecycleScope.launch {
                         performStateChange(itemId, itemType, picked.name)
@@ -64,84 +70,100 @@ class WidgetStatePickerActivity : ComponentActivity() {
         }
     }
 
-    private suspend fun setLoading(loading: Boolean) {
-        try {
-            val manager = GlanceAppWidgetManager(applicationContext)
-            for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
-                updateAppWidgetState(applicationContext, glanceId) { prefs ->
-                    prefs[WidgetRefreshCallback.IsLoadingKey] = loading
-                }
-            }
-            CasuallyWidget().updateAll(applicationContext)
-        } catch (_: Exception) {}
-    }
-
     private suspend fun performStateChange(id: String, type: String, newState: String) {
         val provider = WidgetDataProvider(applicationContext)
         val sessionManager = SessionManager(applicationContext)
-
-        // Show loading
-        setLoading(true)
-
-        // Optimistic: mutate cache immediately and update widget
-        val cached = provider.loadFromCache()
-        if (cached != null) {
-            val optimistic = if (type == "long") {
-                if (newState != "ACTIVE") {
-                    cached.copy(projects = cached.projects.filter { it.id != id })
-                } else {
-                    cached.copy(projects = cached.projects.map {
-                        if (it.id == id) it.copy(state = newState) else it
-                    })
-                }
-            } else {
-                if (newState != "ACTIVE") {
-                    cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
-                        tasks.filter { it.id != id }
-                    })
-                } else {
-                    cached.copy(tasksByProject = cached.tasksByProject.mapValues { (_, tasks) ->
-                        tasks.map { if (it.id == id) it.copy(state = newState) else it }
-                    })
-                }
-            }
-            provider.saveToCache(optimistic)
-            CasuallyWidget().updateAll(applicationContext)
-        }
-
-        // Send HTTP request directly (not via WorkManager)
         val token = sessionManager.sessionToken
         val baseUrl = BuildConfig.API_BASE_URL
 
+        // 1. Show loading
+        provider.setLoading(true)
+        provider.refreshWidgets()
+
+        // 2. Optimistic update — read current data from the first widget's
+        //    Glance state, mutate, and push back to all widgets.
+        val currentJson = getCurrentDataJson()
+        val cached = currentJson?.let { WidgetDataProvider.deserialize(it) }
+        if (cached != null) {
+            val optimistic = applyOptimisticUpdate(cached, id, type, newState)
+            provider.pushData(optimistic)
+            provider.refreshWidgets()
+        }
+
+        // 3. Send PATCH directly (on IO thread)
         if (token != null) {
             val success = withContext(Dispatchers.IO) {
                 provider.patchState(baseUrl, token, id, type, newState)
             }
 
-            if (success) {
-                // Wait for server to settle, then re-fetch
-                withContext(Dispatchers.IO) {
-                    delay(1000)
-                    val freshData = provider.fetchData(baseUrl, token)
-                    if (freshData != null) {
-                        provider.saveToCache(freshData)
-                    }
-                }
-            } else {
-                // PATCH failed — re-fetch server truth to fix optimistic cache
-                withContext(Dispatchers.IO) {
-                    val freshData = provider.fetchData(baseUrl, token)
-                    if (freshData != null) {
-                        provider.saveToCache(freshData)
-                    }
+            // 4. Fetch server truth
+            withContext(Dispatchers.IO) {
+                if (success) delay(1000) // let server settle
+                val fresh = provider.fetchData(baseUrl, token)
+                if (fresh != null) {
+                    provider.pushData(fresh)
                 }
             }
         }
 
-        // Always clear loading
-        setLoading(false)
+        // 5. Always clear loading and re-render
+        provider.clearLoading()
+        provider.refreshWidgets()
+    }
+
+    /**
+     * Read the serialised data JSON from the first widget instance's Glance
+     * preferences. Returns null if no widget exists or no data is stored.
+     */
+    private suspend fun getCurrentDataJson(): String? {
+        return try {
+            val manager =
+                androidx.glance.appwidget.GlanceAppWidgetManager(applicationContext)
+            val ids = manager.getGlanceIds(CasuallyWidget::class.java)
+            if (ids.isEmpty()) return null
+
+            // Read via updateAppWidgetState and capture the value
+            var json: String? = null
+            androidx.glance.appwidget.state.updateAppWidgetState(
+                applicationContext, ids.first()
+            ) { prefs ->
+                json = prefs[WidgetKeys.DataKey]
+            }
+            json
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun applyOptimisticUpdate(
+        data: WidgetData,
+        id: String,
+        type: String,
+        newState: String,
+    ): WidgetData {
+        return if (type == "long") {
+            if (newState != "ACTIVE") {
+                data.copy(projects = data.projects.filter { it.id != id })
+            } else {
+                data.copy(projects = data.projects.map {
+                    if (it.id == id) it.copy(state = newState) else it
+                })
+            }
+        } else {
+            if (newState != "ACTIVE") {
+                data.copy(tasksByProject = data.tasksByProject.mapValues { (_, tasks) ->
+                    tasks.filter { it.id != id }
+                })
+            } else {
+                data.copy(tasksByProject = data.tasksByProject.mapValues { (_, tasks) ->
+                    tasks.map { if (it.id == id) it.copy(state = newState) else it }
+                })
+            }
+        }
     }
 }
+
+// ── State Picker UI ──────────────────────────────────────────────────────────
 
 private fun stateEmoji(state: TaskState): String = when (state) {
     TaskState.ACTIVE -> "\u26A1"
@@ -165,7 +187,6 @@ private fun StatePickerDialog(
     onPick: (TaskState) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    // Full-screen scrim
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -176,7 +197,6 @@ private fun StatePickerDialog(
             ) { onDismiss() },
         contentAlignment = Alignment.BottomCenter,
     ) {
-        // Bottom-sheet style card
         Card(
             modifier = Modifier
                 .fillMaxWidth()
@@ -184,25 +204,20 @@ private fun StatePickerDialog(
                 .clickable(
                     indication = null,
                     interactionSource = remember { MutableInteractionSource() },
-                ) { /* consume click */ },
+                ) {},
             shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface,
             ),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         ) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-            ) {
+            Column(modifier = Modifier.padding(16.dp)) {
                 // Current state header
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        stateEmoji(currentState),
-                        fontSize = 20.sp,
-                    )
+                    Text(stateEmoji(currentState), fontSize = 20.sp)
                     Spacer(Modifier.width(8.dp))
                     Column(modifier = Modifier.weight(1f)) {
                         if (!itemName.isNullOrBlank()) {
@@ -225,7 +240,6 @@ private fun StatePickerDialog(
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
-                // State options
                 transitions.forEach { state ->
                     Row(
                         modifier = Modifier
@@ -234,10 +248,7 @@ private fun StatePickerDialog(
                             .padding(vertical = 14.dp, horizontal = 4.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            stateEmoji(state),
-                            fontSize = 24.sp,
-                        )
+                        Text(stateEmoji(state), fontSize = 24.sp)
                         Spacer(Modifier.width(12.dp))
                         Column {
                             Text(
@@ -253,18 +264,16 @@ private fun StatePickerDialog(
                             )
                         }
                     }
-                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)
+                    )
                 }
 
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // Cancel button
                 TextButton(
                     onClick = onDismiss,
                     modifier = Modifier.align(Alignment.CenterHorizontally),
-                ) {
-                    Text("Cancel")
-                }
+                ) { Text("Cancel") }
             }
         }
     }

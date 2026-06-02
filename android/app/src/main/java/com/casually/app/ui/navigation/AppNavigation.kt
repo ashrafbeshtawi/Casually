@@ -202,6 +202,8 @@ fun AppNavigation(
             ProjectDetailScreen(
                 onBack = { navController.popBackStack() },
                 onAddTask = { parentId -> showCreateTaskForParent = parentId },
+                onEditTask = { task, parentId -> showEditTask = Pair(task, parentId) },
+                refreshTrigger = dashboardRefreshTrigger,
             )
         }
 

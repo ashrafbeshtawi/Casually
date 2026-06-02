@@ -6,19 +6,22 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.state.updateAppWidgetState
 
+/** Handles tab switches (One-Offs / Projects / Routines). */
 class WidgetTabCallback : ActionCallback {
 
     companion object {
         val TabKey = ActionParameters.Key<String>("tab")
     }
 
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
+    override suspend fun onAction(
+        context: Context,
+        glanceId: GlanceId,
+        parameters: ActionParameters,
+    ) {
         val tab = parameters[TabKey] ?: return
-
         updateAppWidgetState(context, glanceId) { prefs ->
-            prefs[WidgetTabKey] = tab
+            prefs[WidgetKeys.TabKey] = tab
         }
-
         CasuallyWidget().update(context, glanceId)
     }
 }

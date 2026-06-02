@@ -1,6 +1,9 @@
 package com.casually.app.widget
 
 import android.content.Context
+import androidx.glance.appwidget.GlanceAppWidgetManager
+import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.updateAll
 import com.squareup.moshi.JsonClass
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.Types
@@ -10,6 +13,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
+
+// ── Data Models ──────────────────────────────────────────────────────────────
 
 @JsonClass(generateAdapter = true)
 data class WidgetProject(
@@ -34,111 +39,178 @@ data class WidgetTask(
 data class WidgetData(
     val projects: List<WidgetProject>,
     val tasksByProject: Map<String, List<WidgetTask>>,
-)
+) {
+    fun sorted(): WidgetData {
+        val order = PRIORITY_ORDER
+        return WidgetData(
+            projects = projects.sortedBy { order[it.priority] ?: 2 },
+            tasksByProject = tasksByProject.mapValues { (_, v) ->
+                v.sortedBy { order[it.priority] ?: 2 }
+            },
+        )
+    }
+
+    companion object {
+        val PRIORITY_ORDER = mapOf(
+            "HIGHEST" to 0, "HIGH" to 1, "MEDIUM" to 2, "LOW" to 3, "LOWEST" to 4,
+        )
+    }
+}
+
+// ── Provider ─────────────────────────────────────────────────────────────────
 
 class WidgetDataProvider(private val context: Context) {
 
-    private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
     private val client = OkHttpClient.Builder()
         .connectTimeout(10, TimeUnit.SECONDS)
         .readTimeout(10, TimeUnit.SECONDS)
         .writeTimeout(10, TimeUnit.SECONDS)
         .build()
 
-    fun fetchData(baseUrl: String, sessionToken: String): WidgetData? {
-        return try {
-            val projectsJson = fetch("$baseUrl/api/tasks/long?state=ACTIVE", sessionToken) ?: return null
-            val tasksJson = fetch("$baseUrl/api/tasks/short?state=ACTIVE", sessionToken) ?: return null
+    // ── Serialization (static, no instance state needed) ─────────────────────
 
-            val projectType = Types.newParameterizedType(List::class.java, WidgetProject::class.java)
-            val taskType = Types.newParameterizedType(List::class.java, WidgetTask::class.java)
+    companion object {
+        private val moshi = Moshi.Builder().addLast(KotlinJsonAdapterFactory()).build()
+        private val dataAdapter = moshi.adapter(WidgetData::class.java)
+        private val projectListType =
+            Types.newParameterizedType(List::class.java, WidgetProject::class.java)
+        private val taskListType =
+            Types.newParameterizedType(List::class.java, WidgetTask::class.java)
 
-            val projects = moshi.adapter<List<WidgetProject>>(projectType).fromJson(projectsJson) ?: emptyList()
-            val tasks = moshi.adapter<List<WidgetTask>>(taskType).fromJson(tasksJson) ?: emptyList()
+        fun serialize(data: WidgetData): String = dataAdapter.toJson(data)
 
-            val priorityOrder = mapOf("HIGHEST" to 0, "HIGH" to 1, "MEDIUM" to 2, "LOW" to 3, "LOWEST" to 4)
-            val sortedProjects = projects.sortedBy { priorityOrder[it.priority] ?: 2 }
-            val tasksByProject = tasks.groupBy { it.parentId }
-                .mapValues { (_, v) -> v.sortedBy { priorityOrder[it.priority] ?: 2 } }
-            WidgetData(sortedProjects, tasksByProject)
-        } catch (e: Exception) {
+        fun deserialize(json: String): WidgetData? = try {
+            dataAdapter.fromJson(json)?.sorted()
+        } catch (_: Exception) {
             null
         }
     }
 
-    private fun fetch(url: String, sessionToken: String): String? {
-        // Send both cookie names: secure (HTTPS/Vercel) and plain (local dev)
+    // ── Network ──────────────────────────────────────────────────────────────
+
+    fun fetchData(baseUrl: String, sessionToken: String): WidgetData? {
+        return try {
+            val projectsJson =
+                httpGet("$baseUrl/api/tasks/long?state=ACTIVE", sessionToken) ?: return null
+            val tasksJson =
+                httpGet("$baseUrl/api/tasks/short?state=ACTIVE", sessionToken) ?: return null
+
+            val projects =
+                moshi.adapter<List<WidgetProject>>(projectListType).fromJson(projectsJson)
+                    ?: emptyList()
+            val tasks =
+                moshi.adapter<List<WidgetTask>>(taskListType).fromJson(tasksJson) ?: emptyList()
+
+            WidgetData(projects, tasks.groupBy { it.parentId }).sorted()
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    fun patchState(
+        baseUrl: String,
+        sessionToken: String,
+        id: String,
+        type: String,
+        newState: String,
+    ): Boolean {
+        return try {
+            val body = """{"state":"$newState"}""".toRequestBody("application/json".toMediaType())
+            val request = Request.Builder()
+                .url("$baseUrl/api/tasks/$type/$id/state")
+                .addHeader("Cookie", cookieHeader(sessionToken))
+                .patch(body)
+                .build()
+            client.newCall(request).execute().use { it.isSuccessful }
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private fun httpGet(url: String, sessionToken: String): String? {
         val request = Request.Builder()
             .url(url)
-            .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
+            .addHeader("Cookie", cookieHeader(sessionToken))
             .build()
-
         return client.newCall(request).execute().use { response ->
             if (response.isSuccessful) response.body?.string() else null
         }
     }
 
-    /**
-     * Send state change PATCH to server. Returns true if the server accepted it.
-     */
-    fun patchState(baseUrl: String, sessionToken: String, id: String, type: String, newState: String): Boolean {
-        return try {
-            val json = """{"state":"$newState"}"""
-            val body = json.toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("$baseUrl/api/tasks/$type/$id/state")
-                .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
-                .patch(body)
-                .build()
-            val response = client.newCall(request).execute()
-            val success = response.isSuccessful
-            response.close()
-            success
-        } catch (e: Exception) {
-            false
-        }
-    }
+    private fun cookieHeader(token: String) =
+        "__Secure-authjs.session-token=$token; authjs.session-token=$token"
+
+    // ── Glance State Management ──────────────────────────────────────────────
+    //
+    // ALL widget data is stored in Glance's own preferences (backed by
+    // DataStore). This guarantees that currentState<Preferences>() inside
+    // provideContent always returns the latest data — no SharedPreferences
+    // timing races.
 
     /**
-     * PATCH a single field on a long task and re-fetch all data.
+     * Write data to every widget instance's Glance state, then trigger a
+     * re-render.  Also seeds per-project collapse defaults.
      */
-    fun patchLongTask(baseUrl: String, sessionToken: String, id: String, jsonBody: String): WidgetData? {
-        return try {
-            val body = jsonBody.toRequestBody("application/json".toMediaType())
-            val request = Request.Builder()
-                .url("$baseUrl/api/tasks/long/$id")
-                .addHeader("Cookie", "__Secure-authjs.session-token=$sessionToken; authjs.session-token=$sessionToken")
-                .patch(body)
-                .build()
-            val response = client.newCall(request).execute()
-            response.close()
-            fetchData(baseUrl, sessionToken)
-        } catch (e: Exception) {
-            null
+    suspend fun pushData(data: WidgetData) {
+        val json = serialize(data)
+        val manager = GlanceAppWidgetManager(context)
+        for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[WidgetKeys.DataKey] = json
+                // Seed collapse defaults for projects we haven't seen yet
+                for (project in data.projects) {
+                    val key = WidgetKeys.collapseKey(project.id)
+                    if (key !in prefs) {
+                        prefs[key] = project.collapsed == true
+                    }
+                }
+            }
         }
     }
 
-    fun saveToCache(data: WidgetData) {
-        val prefs = context.getSharedPreferences("widget_cache", Context.MODE_PRIVATE)
-        prefs.edit()
-            .putString("data", moshi.adapter(WidgetData::class.java).toJson(data))
-            .commit()
+    /**
+     * Set the loading flag on every widget instance.
+     */
+    suspend fun setLoading(loading: Boolean) {
+        val manager = GlanceAppWidgetManager(context)
+        for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[WidgetKeys.IsLoadingKey] = loading
+            }
+        }
     }
 
-    fun loadFromCache(): WidgetData? {
-        val prefs = context.getSharedPreferences("widget_cache", Context.MODE_PRIVATE)
-        val json = prefs.getString("data", null) ?: return null
-        return try {
-            val data = moshi.adapter(WidgetData::class.java).fromJson(json) ?: return null
-            val priorityOrder = mapOf("HIGHEST" to 0, "HIGH" to 1, "MEDIUM" to 2, "LOW" to 3, "LOWEST" to 4)
-            WidgetData(
-                projects = data.projects.sortedBy { priorityOrder[it.priority] ?: 2 },
-                tasksByProject = data.tasksByProject.mapValues { (_, v) ->
-                    v.sortedBy { priorityOrder[it.priority] ?: 2 }
-                },
-            )
-        } catch (e: Exception) {
-            null
+    /**
+     * Push data and clear loading in a single atomic state update per widget.
+     */
+    suspend fun pushDataAndClearLoading(data: WidgetData) {
+        val json = serialize(data)
+        val manager = GlanceAppWidgetManager(context)
+        for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+            updateAppWidgetState(context, glanceId) { prefs ->
+                prefs[WidgetKeys.DataKey] = json
+                prefs[WidgetKeys.IsLoadingKey] = false
+                for (project in data.projects) {
+                    val key = WidgetKeys.collapseKey(project.id)
+                    if (key !in prefs) {
+                        prefs[key] = project.collapsed == true
+                    }
+                }
+            }
         }
+    }
+
+    /**
+     * Clear loading on all widgets without changing data.
+     */
+    suspend fun clearLoading() {
+        setLoading(false)
+    }
+
+    /**
+     * Tell Glance to re-compose every widget instance.
+     */
+    suspend fun refreshWidgets() {
+        CasuallyWidget().updateAll(context)
     }
 }

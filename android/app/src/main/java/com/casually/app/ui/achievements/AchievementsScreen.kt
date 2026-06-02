@@ -29,6 +29,7 @@ private data class AchievementGroup(
     val emoji: String?,
     val priority: Priority,
     val tasks: List<ShortRunningTask>,
+    val latestDoneAt: String,
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,15 +52,19 @@ fun AchievementsScreen(
         ) {
             val hasAnything = uiState.doneProjects.isNotEmpty() || uiState.tasksByProject.isNotEmpty()
 
-            // Merge both types into a single list of groups
+            // Merge both types into a single list of groups, sorted by the
+            // latest DONE subtask's updatedAt (descending). Projects with no
+            // DONE children fall back to the project's own updatedAt.
             val groups = buildList {
                 uiState.doneProjects.forEach { project ->
+                    val tasks = uiState.childrenByProject[project.id] ?: emptyList()
                     add(AchievementGroup(
                         id = project.id,
                         title = project.title,
                         emoji = project.emoji,
                         priority = project.priority,
-                        tasks = uiState.childrenByProject[project.id] ?: emptyList(),
+                        tasks = tasks,
+                        latestDoneAt = tasks.maxOfOrNull { it.updatedAt } ?: project.updatedAt,
                     ))
                 }
                 uiState.tasksByProject.forEach { group ->
@@ -69,9 +74,10 @@ fun AchievementsScreen(
                         emoji = group.projectEmoji,
                         priority = group.tasks.firstOrNull()?.priority ?: Priority.MEDIUM,
                         tasks = group.tasks,
+                        latestDoneAt = group.tasks.maxOfOrNull { it.updatedAt } ?: "",
                     ))
                 }
-            }
+            }.sortedByDescending { it.latestDoneAt }
 
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),

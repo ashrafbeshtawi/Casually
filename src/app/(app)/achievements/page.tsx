@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { type Priority, type TaskState, PRIORITY_COLORS, sortByPriority } from '@/types'
+import { type Priority, type TaskState, PRIORITY_COLORS } from '@/types'
 import { TaskCard } from '@/components/task-card'
 import { Trophy, ChevronRight, ChevronDown, Loader2 } from 'lucide-react'
 
@@ -12,6 +12,7 @@ interface DoneProject {
   emoji: string | null
   priority: Priority
   state: TaskState
+  updatedAt: string
   children: DoneTask[]
   _count: { children: number }
 }
@@ -24,6 +25,7 @@ interface DoneTask {
   priority: Priority
   state: TaskState
   parentId: string
+  updatedAt: string
   parent?: { id: string; title: string; emoji: string | null }
 }
 
@@ -68,7 +70,7 @@ export default function AchievementsPage() {
         })
       )
 
-      setDoneProjects(sortByPriority(projectsWithChildren))
+      setDoneProjects(projectsWithChildren)
 
       // Group done tasks from non-done projects
       const doneProjectIds = new Set(projects.map((p) => p.id))
@@ -144,7 +146,9 @@ export default function AchievementsPage() {
         </div>
       ) : (
         <>
-          {/* All project groups — both done projects and active projects with done tasks */}
+          {/* All project groups — both done projects and active projects with done tasks.
+              Ordered by the most recently DONE subtask (descending); projects without DONE
+              children fall back to the project's own updatedAt. */}
           <div className="space-y-3">
             {[
               ...doneProjects.map((project) => ({
@@ -153,6 +157,11 @@ export default function AchievementsPage() {
                 emoji: project.emoji,
                 priority: project.priority,
                 tasks: project.children ?? [],
+                latestDoneAt:
+                  (project.children ?? []).reduce(
+                    (max, t) => (t.updatedAt > max ? t.updatedAt : max),
+                    '',
+                  ) || project.updatedAt,
               })),
               ...taskGroups.map((group) => ({
                 id: `group-${group.parentId}`,
@@ -160,8 +169,14 @@ export default function AchievementsPage() {
                 emoji: group.parentEmoji,
                 priority: (group.tasks[0]?.priority ?? 'MEDIUM') as Priority,
                 tasks: group.tasks,
+                latestDoneAt: group.tasks.reduce(
+                  (max, t) => (t.updatedAt > max ? t.updatedAt : max),
+                  '',
+                ),
               })),
-            ].map((group) => {
+            ]
+              .sort((a, b) => b.latestDoneAt.localeCompare(a.latestDoneAt))
+              .map((group) => {
               const borderColor = PRIORITY_COLORS[group.priority]
               const isExpanded = expandedProjects.has(group.id)
 
