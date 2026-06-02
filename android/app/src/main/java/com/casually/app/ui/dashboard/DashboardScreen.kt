@@ -92,6 +92,12 @@ fun DashboardScreen(
                             task = project,
                             onClick = { onProjectClick(project.id) },
                             onEdit = { onEditProject(project) },
+                            onChangeState = { newState ->
+                                viewModel.changeProjectState(project.id, newState.name)
+                            },
+                            onChangePriority = { newPriority ->
+                                viewModel.changeProjectPriority(project.id, newPriority.name)
+                            },
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }

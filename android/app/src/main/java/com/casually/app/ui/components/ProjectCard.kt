@@ -10,12 +10,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.casually.app.domain.model.LongRunningTask
+import com.casually.app.domain.model.Priority
+import com.casually.app.domain.model.TaskState
 
 @Composable
 fun ProjectCard(
     task: LongRunningTask,
     onClick: () -> Unit,
     onEdit: (() -> Unit)? = null,
+    onChangeState: ((TaskState) -> Unit)? = null,
+    onChangePriority: ((Priority) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val isProtected = task.title in PROTECTED_TITLES
@@ -56,7 +60,24 @@ fun ProjectCard(
             }
             Spacer(Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                StateBadge(task.state)
+                if (onChangeState != null) {
+                    InlineStateChanger(
+                        state = task.state,
+                        enabled = !isProtected,
+                        onChange = onChangeState,
+                    )
+                } else {
+                    StateBadge(task.state)
+                }
+                Spacer(Modifier.width(4.dp))
+                if (onChangePriority != null) {
+                    InlinePriorityChanger(
+                        priority = task.priority,
+                        enabled = !isProtected,
+                        showLabel = true,
+                        onChange = onChangePriority,
+                    )
+                }
                 Spacer(Modifier.weight(1f))
                 val childCount = task.count?.children ?: task.children?.size ?: 0
                 if (childCount > 0) {

@@ -57,24 +57,26 @@ fun AchievementsScreen(
             // DONE children fall back to the project's own updatedAt.
             val groups = buildList {
                 uiState.doneProjects.forEach { project ->
-                    val tasks = uiState.childrenByProject[project.id] ?: emptyList()
+                    val tasks = (uiState.childrenByProject[project.id] ?: emptyList())
+                        .sortedByDescending { it.updatedAt }
                     add(AchievementGroup(
                         id = project.id,
                         title = project.title,
                         emoji = project.emoji,
                         priority = project.priority,
                         tasks = tasks,
-                        latestDoneAt = tasks.maxOfOrNull { it.updatedAt } ?: project.updatedAt,
+                        latestDoneAt = tasks.firstOrNull()?.updatedAt ?: project.updatedAt,
                     ))
                 }
                 uiState.tasksByProject.forEach { group ->
+                    val tasks = group.tasks.sortedByDescending { it.updatedAt }
                     add(AchievementGroup(
                         id = "group-${group.projectId}",
                         title = group.projectTitle,
                         emoji = group.projectEmoji,
-                        priority = group.tasks.firstOrNull()?.priority ?: Priority.MEDIUM,
-                        tasks = group.tasks,
-                        latestDoneAt = group.tasks.maxOfOrNull { it.updatedAt } ?: "",
+                        priority = tasks.firstOrNull()?.priority ?: Priority.MEDIUM,
+                        tasks = tasks,
+                        latestDoneAt = tasks.firstOrNull()?.updatedAt ?: "",
                     ))
                 }
             }.sortedByDescending { it.latestDoneAt }

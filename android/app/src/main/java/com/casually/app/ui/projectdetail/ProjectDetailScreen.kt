@@ -3,7 +3,6 @@ package com.casually.app.ui.projectdetail
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
@@ -12,10 +11,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.casually.app.domain.model.Priority
 import com.casually.app.domain.model.ShortRunningTask
 import com.casually.app.domain.model.TaskState
 import com.casually.app.domain.model.sortedByPriority
@@ -105,15 +102,16 @@ fun ProjectDetailScreen(
                                 Spacer(Modifier.height(8.dp))
                             }
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                ProjectStateChanger(
+                                InlineStateChanger(
                                     state = project.state,
                                     enabled = !isProtected,
                                     onChange = { viewModel.changeProjectState(it.name) },
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                ProjectPriorityChanger(
+                                InlinePriorityChanger(
                                     priority = project.priority,
                                     enabled = !isProtected,
+                                    showLabel = true,
                                     onChange = { viewModel.changeProjectPriority(it.name) },
                                 )
                             }
@@ -204,77 +202,3 @@ fun ProjectDetailScreen(
     }
 }
 
-@Composable
-private fun ProjectStateChanger(
-    state: TaskState,
-    enabled: Boolean,
-    onChange: (TaskState) -> Unit,
-) {
-    var showMenu by remember { mutableStateOf(false) }
-    Box {
-        Surface(
-            onClick = { if (enabled) showMenu = true },
-            shape = RoundedCornerShape(20.dp),
-            color = Color.Transparent,
-            enabled = enabled,
-        ) {
-            Box(modifier = Modifier.padding(horizontal = 2.dp, vertical = 4.dp)) {
-                StateBadge(state)
-            }
-        }
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            TaskState.validTransitions(state).forEach { next ->
-                DropdownMenuItem(
-                    text = { StateBadge(next) },
-                    onClick = {
-                        showMenu = false
-                        onChange(next)
-                    },
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun ProjectPriorityChanger(
-    priority: Priority,
-    enabled: Boolean,
-    onChange: (Priority) -> Unit,
-) {
-    var showMenu by remember { mutableStateOf(false) }
-    Box {
-        Surface(
-            onClick = { if (enabled) showMenu = true },
-            shape = RoundedCornerShape(12.dp),
-            color = Color.Transparent,
-            enabled = enabled,
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                PriorityDot(priority, size = PriorityDotSize.Medium)
-                Spacer(Modifier.width(6.dp))
-                Text(priority.label, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            Priority.entries.forEach { p ->
-                DropdownMenuItem(
-                    text = { PriorityDot(p, showLabel = true) },
-                    onClick = {
-                        showMenu = false
-                        onChange(p)
-                    },
-                )
-            }
-        }
-    }
-}

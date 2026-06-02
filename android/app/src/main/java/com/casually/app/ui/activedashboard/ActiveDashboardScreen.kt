@@ -193,9 +193,9 @@ fun ActiveDashboardScreen(
                         items(children, key = { it.id }) { task ->
                             TaskRow(
                                 task = task,
-                                showEdit = false,
                                 onChangeState = { newState -> viewModel.changeTaskState(task.id, project.id, newState.name) },
                                 onChangePriority = { newPriority -> viewModel.changeTaskPriority(task.id, project.id, newPriority.name) },
+                                onEdit = { onEditTask(task, project.id) },
                                 onDelete = { deleteConfirm = Triple(task.id, task.title, project.id) },
                                 onMove = { moveDialogTarget = Pair(task.id, project.id) },
                             )

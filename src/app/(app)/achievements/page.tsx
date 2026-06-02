@@ -151,29 +151,32 @@ export default function AchievementsPage() {
               children fall back to the project's own updatedAt. */}
           <div className="space-y-3">
             {[
-              ...doneProjects.map((project) => ({
-                id: project.id,
-                title: project.title,
-                emoji: project.emoji,
-                priority: project.priority,
-                tasks: project.children ?? [],
-                latestDoneAt:
-                  (project.children ?? []).reduce(
-                    (max, t) => (t.updatedAt > max ? t.updatedAt : max),
-                    '',
-                  ) || project.updatedAt,
-              })),
-              ...taskGroups.map((group) => ({
-                id: `group-${group.parentId}`,
-                title: group.parentTitle,
-                emoji: group.parentEmoji,
-                priority: (group.tasks[0]?.priority ?? 'MEDIUM') as Priority,
-                tasks: group.tasks,
-                latestDoneAt: group.tasks.reduce(
-                  (max, t) => (t.updatedAt > max ? t.updatedAt : max),
-                  '',
-                ),
-              })),
+              ...doneProjects.map((project) => {
+                const tasks = [...(project.children ?? [])].sort((a, b) =>
+                  b.updatedAt.localeCompare(a.updatedAt),
+                )
+                return {
+                  id: project.id,
+                  title: project.title,
+                  emoji: project.emoji,
+                  priority: project.priority,
+                  tasks,
+                  latestDoneAt: tasks[0]?.updatedAt ?? project.updatedAt,
+                }
+              }),
+              ...taskGroups.map((group) => {
+                const tasks = [...group.tasks].sort((a, b) =>
+                  b.updatedAt.localeCompare(a.updatedAt),
+                )
+                return {
+                  id: `group-${group.parentId}`,
+                  title: group.parentTitle,
+                  emoji: group.parentEmoji,
+                  priority: (tasks[0]?.priority ?? 'MEDIUM') as Priority,
+                  tasks,
+                  latestDoneAt: tasks[0]?.updatedAt ?? '',
+                }
+              }),
             ]
               .sort((a, b) => b.latestDoneAt.localeCompare(a.latestDoneAt))
               .map((group) => {

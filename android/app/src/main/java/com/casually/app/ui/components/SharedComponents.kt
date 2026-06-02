@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
@@ -35,6 +36,80 @@ val DEFAULT_FILTER_OPTIONS = listOf(
     "BLOCKED" to "Blocked",
     "DONE" to "Done",
 )
+
+@Composable
+fun InlineStateChanger(
+    state: TaskState,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onChange: (TaskState) -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        Box(
+            modifier = Modifier
+                .clip(RoundedCornerShape(20.dp))
+                .clickable(enabled = enabled) { showMenu = true }
+                .padding(horizontal = 2.dp, vertical = 4.dp),
+        ) {
+            StateBadge(state)
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            TaskState.validTransitions(state).forEach { next ->
+                DropdownMenuItem(
+                    text = { StateBadge(next) },
+                    onClick = {
+                        showMenu = false
+                        onChange(next)
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun InlinePriorityChanger(
+    priority: Priority,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    showLabel: Boolean = false,
+    onChange: (Priority) -> Unit,
+) {
+    var showMenu by remember { mutableStateOf(false) }
+    Box(modifier = modifier) {
+        Row(
+            modifier = Modifier
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(enabled = enabled) { showMenu = true }
+                .padding(horizontal = 6.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PriorityDot(priority, size = PriorityDotSize.Medium)
+            if (showLabel) {
+                Spacer(Modifier.width(6.dp))
+                Text(priority.label, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+        DropdownMenu(
+            expanded = showMenu,
+            onDismissRequest = { showMenu = false },
+        ) {
+            Priority.entries.forEach { p ->
+                DropdownMenuItem(
+                    text = { PriorityDot(p, showLabel = true) },
+                    onClick = {
+                        showMenu = false
+                        onChange(p)
+                    },
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun FilterChipRow(
