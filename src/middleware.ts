@@ -20,11 +20,12 @@ export const config = {
     /*
      * Match all request paths except:
      * - api/auth (NextAuth API routes)
+     * - api/mcp (MCP endpoint, uses bearer token auth)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico (favicon)
      * - login (login page)
      */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|login).*)",
+    "/((?!api/auth|api/mcp|_next/static|_next/image|favicon.ico|login).*)",
   ],
 }
