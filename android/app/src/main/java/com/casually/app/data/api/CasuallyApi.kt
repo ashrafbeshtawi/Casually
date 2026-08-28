@@ -1,5 +1,6 @@
 package com.casually.app.data.api
 
+import com.casually.app.domain.model.ApiToken
 import com.casually.app.domain.model.Challenge
 import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
@@ -88,4 +89,14 @@ interface CasuallyApi {
 
     @POST("api/challenges/{id}/relapse")
     suspend fun relapseChallenge(@Path("id") id: String): Challenge
+
+    // MCP access tokens
+    @GET("api/tokens")
+    suspend fun getApiTokens(): List<ApiToken>
+
+    @POST("api/tokens")
+    suspend fun createApiToken(@Body body: CreateTokenRequest): ApiToken
+
+    @DELETE("api/tokens/{id}")
+    suspend fun deleteApiToken(@Path("id") id: String): Response<Unit>
 }
