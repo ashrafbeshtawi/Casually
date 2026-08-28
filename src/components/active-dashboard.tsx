@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { type Priority, type TaskState, PRIORITY_COLORS, sortByPriority } from '@/types'
 import { TaskCard } from '@/components/task-card'
+import { PriorityChanger } from '@/components/priority-changer'
 import { CreateShortTermTaskDialog } from '@/components/create-short-term-task-dialog'
 import { AddTaskDialog } from '@/components/add-task-dialog'
 import { useCollapseState } from '@/hooks/use-collapse-state'
@@ -56,7 +57,7 @@ function filterProjectsByTab(projects: Project[], tab: TabValue): Project[] {
 
 export function ActiveDashboard() {
   const [projects, setProjects] = useState<Project[]>([])
-  const [activeShortTasks, setActiveShortTasks] = useState<Task[]>([])
+  const [shortTasks, setShortTasks] = useState<Task[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<TabValue>('one-offs')
@@ -66,7 +67,8 @@ export function ActiveDashboard() {
     try {
       const [projectsRes, tasksRes] = await Promise.all([
         fetch('/api/tasks/long?state=ACTIVE'),
-        fetch('/api/tasks/short?state=ACTIVE'),
+        // All states so the header can summarize waiting/blocked too
+        fetch('/api/tasks/short'),
       ])
 
       if (!projectsRes.ok || !tasksRes.ok) throw new Error('Failed to fetch')
@@ -75,7 +77,7 @@ export function ActiveDashboard() {
       const allTasks: Task[] = await tasksRes.json()
 
       setProjects(allProjects)
-      setActiveShortTasks(allTasks)
+      setShortTasks(allTasks)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
@@ -104,18 +106,20 @@ export function ActiveDashboard() {
     )
   }
 
-  // Group active short tasks by parent
+  // Group short tasks by parent
   const tasksByParent = new Map<string, Task[]>()
-  for (const task of activeShortTasks) {
+  for (const task of shortTasks) {
     const list = tasksByParent.get(task.parentId) ?? []
     list.push(task)
     tasksByParent.set(task.parentId, list)
   }
+  const activeTasksOf = (projectId: string) =>
+    (tasksByParent.get(projectId) ?? []).filter((t) => t.state === 'ACTIVE')
 
   // Filter projects by active tab, then show only those with active subtasks
   const tabProjects = filterProjectsByTab(projects, activeTab)
   const visibleProjects = sortByPriority(
-    tabProjects.filter((p) => (tasksByParent.get(p.id) ?? []).length > 0)
+    tabProjects.filter((p) => activeTasksOf(p.id).length > 0)
   )
 
   return (
@@ -149,7 +153,17 @@ export function ActiveDashboard() {
         </div>
       ) : (
         visibleProjects.map((project) => {
-          const children = sortByPriority(tasksByParent.get(project.id) ?? [])
+          const allChildren = tasksByParent.get(project.id) ?? []
+          const children = sortByPriority(activeTasksOf(project.id))
+          const waiting = allChildren.filter((t) => t.state === 'WAITING').length
+          const blocked = allChildren.filter((t) => t.state === 'BLOCKED').length
+          const summary = [
+            children.length > 0 && `${children.length} active`,
+            waiting > 0 && `${waiting} waiting`,
+            blocked > 0 && `${blocked} blocked`,
+          ]
+            .filter(Boolean)
+            .join(' · ')
           const borderColor = PRIORITY_COLORS[project.priority]
           const collapsed = isCollapsed(project.id)
 
@@ -175,12 +189,22 @@ export function ActiveDashboard() {
                 <span className="truncate text-sm font-medium">
                   {project.title}
                 </span>
-                {children.length > 0 && (
-                  <span className="text-muted-foreground text-xs">
-                    ({children.length} active)
+                {summary && (
+                  <span className="text-muted-foreground text-xs whitespace-nowrap">
+                    ({summary})
                   </span>
                 )}
-                <div onClick={(e) => e.stopPropagation()}>
+                <div
+                  className="ml-auto flex shrink-0 items-center"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <PriorityChanger
+                    taskId={project.id}
+                    currentPriority={project.priority}
+                    taskType="long"
+                    size="sm"
+                    onPriorityChange={fetchData}
+                  />
                   <CreateShortTermTaskDialog
                     parentId={project.id}
                     onCreated={fetchData}
