@@ -33,10 +33,6 @@ object WidgetKeys {
     fun collapseKey(projectId: String) = booleanPreferencesKey("collapsed_$projectId")
 }
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-internal val PROTECTED_TITLES = setOf("One-Off Tasks", "Routines")
-
 // ── Colours ──────────────────────────────────────────────────────────────────
 
 private val WidgetPurple = android.graphics.Color.parseColor("#6D5FF5")
@@ -105,7 +101,7 @@ class CasuallyWidget : GlanceAppWidget() {
             // visible here — no stale-cache races.
             val prefs = currentState<Preferences>()
             val data = prefs[WidgetKeys.DataKey]?.let { WidgetDataProvider.deserialize(it) }
-            val activeTab = prefs[WidgetKeys.TabKey] ?: "one-offs"
+            val activeTab = prefs[WidgetKeys.TabKey] ?: "tasks"
             val isLoading = prefs[WidgetKeys.IsLoadingKey] ?: false
 
             GlanceTheme {
@@ -199,8 +195,7 @@ class CasuallyWidget : GlanceAppWidget() {
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         listOf(
-                            "one-offs" to "One-Offs",
-                            "projects" to "Projects",
+                            "tasks" to "Tasks",
                             "routines" to "Routines",
                         ).forEach { (tabId, tabLabel) ->
                             val isSelected = tabId == activeTab
@@ -266,11 +261,12 @@ class CasuallyWidget : GlanceAppWidget() {
                         }
 
                         else -> {
+                            // "tasks" mixes one-offs and projects; stale stored
+                            // tabs ("one-offs"/"projects") fall through to it too
                             val tabProjects = data.projects.filter { project ->
                                 when (activeTab) {
-                                    "one-offs" -> project.title == "One-Off Tasks"
                                     "routines" -> project.title == "Routines"
-                                    else -> project.title !in PROTECTED_TITLES
+                                    else -> project.title != "Routines"
                                 }
                             }
 

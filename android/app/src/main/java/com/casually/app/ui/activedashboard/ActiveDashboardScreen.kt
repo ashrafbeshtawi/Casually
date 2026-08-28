@@ -21,7 +21,9 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
+import com.casually.app.domain.model.TaskState
 import com.casually.app.ui.components.*
 import com.casually.app.ui.theme.CasuallyPurple
 
@@ -62,6 +64,7 @@ fun ActiveDashboardScreen(
 
     var moveDialogTarget by remember { mutableStateOf<Pair<String, String>?>(null) }
     var deleteConfirm by remember { mutableStateOf<Triple<String, String, String>?>(null) }
+    var priorityDialogProject by remember { mutableStateOf<LongRunningTask?>(null) }
 
     val filteredProjects = uiState.activeProjects.filter { project ->
         when (activeTab) {
@@ -171,12 +174,27 @@ fun ActiveDashboardScreen(
                                         style = MaterialTheme.typography.titleSmall,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    if (children.isNotEmpty()) {
+                                    val counts = uiState.stateCountsByProject[project.id] ?: emptyMap()
+                                    val summary = listOf(
+                                        TaskState.ACTIVE to "active",
+                                        TaskState.WAITING to "waiting",
+                                        TaskState.BLOCKED to "blocked",
+                                    ).mapNotNull { (state, label) ->
+                                        counts[state]?.takeIf { it > 0 }?.let { "$it $label" }
+                                    }.joinToString(" · ")
+                                    if (summary.isNotEmpty()) {
                                         Text(
-                                            "${children.size} active",
+                                            summary,
                                             style = MaterialTheme.typography.labelSmall,
                                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
+                                    }
+                                    Box(
+                                        modifier = Modifier
+                                            .clickable { priorityDialogProject = project }
+                                            .padding(8.dp),
+                                    ) {
+                                        PriorityDot(project.priority, size = PriorityDotSize.Medium)
                                     }
                                     IconButton(
                                         onClick = { onCreateTask(project.id) },
@@ -215,6 +233,17 @@ fun ActiveDashboardScreen(
             }
             }
         }
+    }
+
+    priorityDialogProject?.let { project ->
+        PriorityChangeDialog(
+            currentPriority = project.priority,
+            onDismiss = { priorityDialogProject = null },
+            onConfirm = { newPriority ->
+                viewModel.changeProjectPriority(project.id, newPriority.name)
+                priorityDialogProject = null
+            },
+        )
     }
 
     moveDialogTarget?.let { (taskId, currentParentId) ->

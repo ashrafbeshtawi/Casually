@@ -6,7 +6,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.state.updateAppWidgetState
 
-/** Handles tab switches (One-Offs / Projects / Routines). */
+/** Handles tab switches (Tasks / Routines). */
 class WidgetTabCallback : ActionCallback {
 
     companion object {
