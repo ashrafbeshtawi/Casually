@@ -43,7 +43,11 @@ data class WidgetData(
     fun sorted(): WidgetData {
         val order = PRIORITY_ORDER
         return WidgetData(
-            projects = projects.sortedBy { order[it.priority] ?: 2 },
+            // One-Off Tasks pinned to the top; everything else by priority
+            projects = projects.sortedWith(
+                compareByDescending<WidgetProject> { it.title == "One-Off Tasks" }
+                    .thenBy { order[it.priority] ?: 2 }
+            ),
             tasksByProject = tasksByProject.mapValues { (_, v) ->
                 v.sortedBy { order[it.priority] ?: 2 }
             },
