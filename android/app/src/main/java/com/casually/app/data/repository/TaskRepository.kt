@@ -2,6 +2,7 @@ package com.casually.app.data.repository
 
 import android.content.Context
 import com.casually.app.data.api.*
+import com.casually.app.domain.model.ApiToken
 import com.casually.app.domain.model.Challenge
 import com.casually.app.domain.model.LongRunningTask
 import com.casually.app.domain.model.ShortRunningTask
@@ -98,4 +99,12 @@ class TaskRepository @Inject constructor(
     suspend fun deleteChallenge(id: String) { api.deleteChallenge(id) }
 
     suspend fun relapseChallenge(id: String): Challenge = api.relapseChallenge(id)
+
+    // MCP access tokens
+    suspend fun getApiTokens(): List<ApiToken> = api.getApiTokens()
+
+    suspend fun createApiToken(name: String?): ApiToken =
+        api.createApiToken(CreateTokenRequest(name?.takeIf { it.isNotBlank() }))
+
+    suspend fun deleteApiToken(id: String) { api.deleteApiToken(id) }
 }
