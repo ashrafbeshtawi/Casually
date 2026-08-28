@@ -19,12 +19,13 @@ export const config = {
   matcher: [
     /*
      * Match all request paths except:
-     * - api/auth (NextAuth API routes)
+     * - api/ (routes enforce their own auth via getAuthUserId and
+     *   return 401 JSON — a redirect is the wrong answer for API clients)
      * - _next/static (static files)
      * - _next/image (image optimization)
      * - favicon.ico (favicon)
      * - login (login page)
      */
-    "/((?!api/auth|_next/static|_next/image|favicon.ico|login).*)",
+    "/((?!api/|_next/static|_next/image|favicon.ico|login).*)",
   ],
 }

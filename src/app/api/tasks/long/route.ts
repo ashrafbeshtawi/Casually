@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 
 export async function GET(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state")
   const priority = searchParams.get("priority")
 
-  const where: Record<string, unknown> = { userId: session.user.id }
+  const where: Record<string, unknown> = { userId: userId }
   if (state) where.state = state
   if (priority) where.priority = priority
 
@@ -29,8 +29,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       emoji: emoji?.trim() || null,
       priority: priority || "MEDIUM",
       state: state || "WAITING",
-      userId: session.user.id,
+      userId: userId,
     },
   })
 

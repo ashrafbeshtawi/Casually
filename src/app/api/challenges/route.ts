@@ -1,15 +1,15 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 
-export async function GET() {
-  const session = await auth()
-  if (!session?.user?.id) {
+export async function GET(request: NextRequest) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const challenges = await prisma.challenge.findMany({
-    where: { userId: session.user.id },
+    where: { userId: userId },
     orderBy: { createdAt: "desc" },
   })
 
@@ -17,8 +17,8 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
     data: {
       title: title.trim(),
       emoji: emoji?.trim() || null,
-      userId: session.user.id,
+      userId: userId,
     },
   })
 

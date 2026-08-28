@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function GET(request: NextRequest, context: RouteContext) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { id } = await context.params
   const task = await prisma.shortRunningTask.findFirst({
-    where: { id, parent: { userId: session.user.id } },
+    where: { id, parent: { userId: userId } },
     include: {
       parent: { select: { id: true, title: true, emoji: true } },
       blockedBy: { select: { id: true, title: true, emoji: true } },
@@ -27,14 +27,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { id } = await context.params
   const existing = await prisma.shortRunningTask.findFirst({
-    where: { id, parent: { userId: session.user.id } },
+    where: { id, parent: { userId: userId } },
   })
 
   if (!existing) {
@@ -68,14 +68,14 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   const { id } = await context.params
   const existing = await prisma.shortRunningTask.findFirst({
-    where: { id, parent: { userId: session.user.id } },
+    where: { id, parent: { userId: userId } },
   })
 
   if (!existing) {

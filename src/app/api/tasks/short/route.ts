@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 import { TaskState } from "@/types"
 
 export async function GET(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   const priority = searchParams.get("priority")
 
   const where: Record<string, unknown> = {
-    parent: { userId: session.user.id },
+    parent: { userId: userId },
   }
   if (parentId) where.parentId = parentId
   if (state) where.state = state
@@ -34,8 +34,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
   }
 
   const parent = await prisma.longRunningTask.findFirst({
-    where: { id: parentId, userId: session.user.id },
+    where: { id: parentId, userId: userId },
   })
 
   if (!parent) {

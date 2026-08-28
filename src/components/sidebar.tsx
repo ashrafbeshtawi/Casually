@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Trophy,
   Flame,
+  Settings,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store'
@@ -21,6 +22,7 @@ const navItems = [
   { label: 'Projects', href: '/projects', icon: FolderKanban },
   { label: 'Achievements', href: '/achievements', icon: Trophy },
   { label: 'Challenges', href: '/challenges', icon: Flame },
+  { label: 'Settings', href: '/settings', icon: Settings },
 ]
 
 function NavContent() {
