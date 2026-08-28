@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 import { changeShortRunningTaskState, isValidTransition } from "@/lib/state-machine"
 import { TaskState } from "@/types"
@@ -9,8 +9,8 @@ type RouteContext = { params: Promise<{ id: string }> }
 const VALID_STATES: TaskState[] = ["ACTIVE", "WAITING", "BLOCKED", "DONE"]
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -30,7 +30,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const task = await prisma.shortRunningTask.findFirst({
-    where: { id, parent: { userId: session.user.id } },
+    where: { id, parent: { userId: userId } },
   })
 
   if (!task) {

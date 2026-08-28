@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
 import { TaskState } from "@/types"
 
 type RouteContext = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
-  const session = await auth()
-  if (!session?.user?.id) {
+  const userId = await getAuthUserId(request)
+  if (!userId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
@@ -26,7 +26,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const task = await prisma.shortRunningTask.findFirst({
-    where: { id, parent: { userId: session.user.id } },
+    where: { id, parent: { userId: userId } },
   })
 
   if (!task) {
@@ -38,7 +38,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
   }
 
   const newParent = await prisma.longRunningTask.findFirst({
-    where: { id: newParentId, userId: session.user.id },
+    where: { id: newParentId, userId: userId },
   })
 
   if (!newParent) {
