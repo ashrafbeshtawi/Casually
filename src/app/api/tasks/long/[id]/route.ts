@@ -11,10 +11,14 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   const { id } = await context.params
+  const { searchParams } = request.nextUrl
+  const take = Math.max(0, Number(searchParams.get("limit"))) || undefined
+  const skip = Math.max(0, Number(searchParams.get("offset"))) || undefined
+
   const task = await prisma.longRunningTask.findFirst({
     where: { id, userId: userId },
     include: {
-      children: { orderBy: { order: "asc" } },
+      children: { orderBy: { order: "asc" }, take, skip },
       blockedBy: { select: { id: true, title: true, emoji: true } },
     },
   })
