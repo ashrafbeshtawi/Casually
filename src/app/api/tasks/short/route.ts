@@ -21,6 +21,9 @@ export async function GET(request: NextRequest) {
   if (state) where.state = state
   if (priority) where.priority = priority
 
+  const take = Math.max(0, Number(searchParams.get("limit"))) || undefined
+  const skip = Math.max(0, Number(searchParams.get("offset"))) || undefined
+
   const tasks = await prisma.shortRunningTask.findMany({
     where,
     include: {
@@ -28,6 +31,8 @@ export async function GET(request: NextRequest) {
       blockedBy: { select: { id: true, title: true, emoji: true } },
     },
     orderBy: { order: "asc" },
+    take,
+    skip,
   })
 
   return NextResponse.json(tasks)
