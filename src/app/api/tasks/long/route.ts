@@ -46,6 +46,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Title is required" }, { status: 400 })
   }
 
+  // Special projects auto-created at signup; every consumer assumes the
+  // title is unique per user, so user-facing creation must not duplicate it.
+  const PROTECTED_TITLES = ["One-Off Tasks", "Routines"]
+  if (PROTECTED_TITLES.includes(title.trim())) {
+    return NextResponse.json(
+      { error: `"${title.trim()}" is a reserved project title` },
+      { status: 400 }
+    )
+  }
+
   const validPriorities = ["HIGHEST", "HIGH", "MEDIUM", "LOW", "LOWEST"]
   if (priority && !validPriorities.includes(priority)) {
     return NextResponse.json({ error: "Invalid priority" }, { status: 400 })
