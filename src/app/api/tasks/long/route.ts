@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
+import { fetchSubtaskCounts } from "@/lib/subtask-counts"
 
 export async function GET(request: NextRequest) {
   const userId = await getAuthUserId(request)
@@ -30,7 +31,8 @@ export async function GET(request: NextRequest) {
     skip,
   })
 
-  return NextResponse.json(tasks)
+  const counts = await fetchSubtaskCounts(tasks.map((t) => t.id))
+  return NextResponse.json(tasks.map((t) => ({ ...t, subtaskCounts: counts(t.id) })))
 }
 
 export async function POST(request: NextRequest) {

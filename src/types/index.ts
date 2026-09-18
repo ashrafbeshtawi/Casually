@@ -14,6 +14,7 @@ export interface LongRunningTask {
   userId: string
   children?: ShortRunningTask[]
   _count?: { children: number }
+  subtaskCounts?: Record<TaskState, number>
   createdAt: string
   updatedAt: string
 }
