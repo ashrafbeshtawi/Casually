@@ -109,7 +109,7 @@ const handler = createMcpHandler(
       "list_projects",
       {
         description:
-          "List the user's projects (long-running tasks) with subtask counts. Optionally filter by state and paginate with limit/offset.",
+          "List the user's projects (long-running tasks) with subtask counts (total and per state). Optionally filter by state and paginate with limit/offset.",
         inputSchema: z.object({ state: stateSchema.optional(), ...pageShape }),
       },
       ({ state, limit, offset }, ctx) => api(ctx)(`/tasks/long${query({ state, limit, offset })}`)
@@ -134,7 +134,7 @@ const handler = createMcpHandler(
       "get_project",
       {
         description:
-          "Get a single project (long-running task) by id, including its subtasks (paginated with limit/offset).",
+          "Get a single project (long-running task) by id, including per-state subtask counts and its subtasks (paginated with limit/offset).",
         inputSchema: z.object({ id: z.string(), ...pageShape }),
       },
       ({ id, limit, offset }, ctx) =>
