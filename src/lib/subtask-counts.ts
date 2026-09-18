@@ -7,7 +7,7 @@ const empty = (): SubtaskCounts => ({ ACTIVE: 0, WAITING: 0, BLOCKED: 0, DONE: 0
 
 // Per-state subtask counts for a set of projects in one query.
 // Returns a lookup; projects without subtasks get all zeros.
-export async function subtaskCountsByParent(parentIds: string[]) {
+export async function fetchSubtaskCounts(parentIds: string[]) {
   const rows = await prisma.shortRunningTask.groupBy({
     by: ["parentId", "state"],
     where: { parentId: { in: parentIds } },

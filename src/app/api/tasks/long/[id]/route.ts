@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
-import { subtaskCountsByParent } from "@/lib/subtask-counts"
+import { fetchSubtaskCounts } from "@/lib/subtask-counts"
 
 type RouteContext = { params: Promise<{ id: string }> }
 
@@ -28,7 +28,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Not found" }, { status: 404 })
   }
 
-  const counts = await subtaskCountsByParent([id])
+  const counts = await fetchSubtaskCounts([id])
   return NextResponse.json({ ...task, subtaskCounts: counts(id) })
 }
 
