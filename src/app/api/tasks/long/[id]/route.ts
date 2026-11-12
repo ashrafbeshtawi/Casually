@@ -19,7 +19,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const task = await prisma.longRunningTask.findFirst({
     where: { id, userId: userId },
     include: {
-      children: { orderBy: { order: "asc" }, take, skip },
+      children: { orderBy: [{ order: "asc" }, { id: "asc" }], take, skip },
       blockedBy: { select: { id: true, title: true, emoji: true } },
     },
   })

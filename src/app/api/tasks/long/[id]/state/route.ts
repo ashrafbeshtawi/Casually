@@ -62,7 +62,7 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   const updatedTask = await prisma.longRunningTask.findUnique({
     where: { id },
-    include: { children: { orderBy: { order: "asc" } } },
+    include: { children: { orderBy: [{ order: "asc" }, { id: "asc" }] } },
   })
 
   return NextResponse.json(updatedTask)
