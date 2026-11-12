@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       _count: { select: { children: true } },
       blockedBy: { select: { id: true, title: true, emoji: true } },
     },
-    orderBy: { order: "asc" },
+    orderBy: [{ order: "asc" }, { id: "asc" }],
     take,
     skip,
   })

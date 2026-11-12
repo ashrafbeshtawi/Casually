@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
       parent: { select: { id: true, title: true, emoji: true } },
       blockedBy: { select: { id: true, title: true, emoji: true } },
     },
-    orderBy: { order: "asc" },
+    orderBy: [{ order: "asc" }, { id: "asc" }],
     take,
     skip,
   })
