@@ -30,12 +30,39 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid ID token" }, { status: 401 })
   }
 
-  if (!payload?.email) {
+  if (!payload?.email || !payload.sub) {
     return NextResponse.json({ error: "No email in token" }, { status: 401 })
   }
 
-  // Find or create user
-  let user = await prisma.user.findUnique({ where: { email: payload.email } })
+  // An unverified address proves nothing about who owns it
+  if (payload.email_verified !== true) {
+    return NextResponse.json({ error: "Email not verified" }, { status: 401 })
+  }
+
+  // Look the user up by Google account (sub), like the web NextAuth flow
+  const account = await prisma.account.findUnique({
+    where: {
+      provider_providerAccountId: {
+        provider: "google",
+        providerAccountId: payload.sub,
+      },
+    },
+    include: { user: true },
+  })
+  let user = account?.user ?? null
+
+  if (!user) {
+    const byEmail = await prisma.user.findUnique({
+      where: { email: payload.email },
+      include: { accounts: { where: { provider: "google" } } },
+    })
+
+    // The email belongs to a user already linked to another Google account
+    if (byEmail && byEmail.accounts.length > 0) {
+      return NextResponse.json({ error: "Account mismatch" }, { status: 401 })
+    }
+    user = byEmail
+  }
 
   if (!user) {
     user = await prisma.user.create({
@@ -43,7 +70,7 @@ export async function POST(request: NextRequest) {
         email: payload.email,
         name: payload.name ?? null,
         image: payload.picture ?? null,
-        emailVerified: payload.email_verified ? new Date() : null,
+        emailVerified: new Date(),
       },
     })
 
@@ -67,6 +94,18 @@ export async function POST(request: NextRequest) {
           order: 1,
         },
       ],
+    })
+  }
+
+  // Link the Google account so later logins (mobile and web) match on sub
+  if (!account) {
+    await prisma.account.create({
+      data: {
+        userId: user.id,
+        type: "oidc",
+        provider: "google",
+        providerAccountId: payload.sub,
+      },
     })
   }
 
