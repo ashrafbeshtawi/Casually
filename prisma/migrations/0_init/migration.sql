@@ -1,11 +1,11 @@
+-- CreateSchema
+CREATE SCHEMA IF NOT EXISTS "public";
+
 -- CreateEnum
 CREATE TYPE "Priority" AS ENUM ('HIGHEST', 'HIGH', 'MEDIUM', 'LOW', 'LOWEST');
 
 -- CreateEnum
 CREATE TYPE "TaskState" AS ENUM ('ACTIVE', 'WAITING', 'BLOCKED', 'DONE');
-
--- CreateEnum
-CREATE TYPE "Interval" AS ENUM ('DAILY', 'WEEKLY', 'BIWEEKLY', 'MONTHLY', 'CUSTOM');
 
 -- CreateTable
 CREATE TABLE "Account" (
@@ -56,69 +56,62 @@ CREATE TABLE "User" (
 );
 
 -- CreateTable
-CREATE TABLE "LongTermTask" (
+CREATE TABLE "ApiToken" (
     "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "description" TEXT,
-    "emoji" TEXT,
-    "priority" "Priority" NOT NULL,
-    "state" "TaskState" NOT NULL DEFAULT 'ACTIVE',
-    "isOneOff" BOOLEAN NOT NULL DEFAULT false,
-    "order" INTEGER NOT NULL DEFAULT 0,
+    "name" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
     "userId" TEXT NOT NULL,
-    "blockedBy" JSONB NOT NULL DEFAULT '[]',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "LongTermTask_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ApiToken_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "ShortTermTask" (
+CREATE TABLE "LongRunningTask" (
     "id" TEXT NOT NULL,
     "title" TEXT NOT NULL,
     "description" TEXT,
     "emoji" TEXT,
-    "priority" "Priority" NOT NULL,
+    "priority" "Priority" NOT NULL DEFAULT 'MEDIUM',
+    "state" "TaskState" NOT NULL DEFAULT 'WAITING',
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "collapsed" BOOLEAN NOT NULL DEFAULT false,
+    "blockedById" TEXT,
+    "userId" TEXT NOT NULL,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "LongRunningTask_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ShortRunningTask" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT,
+    "emoji" TEXT,
+    "priority" "Priority" NOT NULL DEFAULT 'MEDIUM',
     "state" "TaskState" NOT NULL DEFAULT 'WAITING',
     "order" INTEGER NOT NULL DEFAULT 0,
     "parentId" TEXT NOT NULL,
-    "blockedBy" JSONB NOT NULL DEFAULT '[]',
+    "blockedById" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "ShortTermTask_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ShortRunningTask_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
-CREATE TABLE "RoutineSection" (
+CREATE TABLE "Challenge" (
     "id" TEXT NOT NULL,
-    "name" TEXT NOT NULL,
-    "order" INTEGER NOT NULL DEFAULT 0,
+    "title" TEXT NOT NULL,
+    "emoji" TEXT,
+    "startedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "userId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
-    CONSTRAINT "RoutineSection_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "Routine" (
-    "id" TEXT NOT NULL,
-    "title" TEXT NOT NULL,
-    "description" TEXT,
-    "emoji" TEXT,
-    "priority" "Priority" NOT NULL,
-    "state" "TaskState" NOT NULL DEFAULT 'ACTIVE',
-    "interval" "Interval",
-    "customInterval" TEXT,
-    "order" INTEGER NOT NULL DEFAULT 0,
-    "sectionId" TEXT,
-    "blockedBy" JSONB NOT NULL DEFAULT '[]',
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "Routine_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Challenge_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -136,6 +129,9 @@ CREATE UNIQUE INDEX "VerificationToken_identifier_token_key" ON "VerificationTok
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "ApiToken_tokenHash_key" ON "ApiToken"("tokenHash");
+
 -- AddForeignKey
 ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -143,13 +139,19 @@ ALTER TABLE "Account" ADD CONSTRAINT "Account_userId_fkey" FOREIGN KEY ("userId"
 ALTER TABLE "Session" ADD CONSTRAINT "Session_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "LongTermTask" ADD CONSTRAINT "LongTermTask_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ApiToken" ADD CONSTRAINT "ApiToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ShortTermTask" ADD CONSTRAINT "ShortTermTask_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "LongTermTask"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LongRunningTask" ADD CONSTRAINT "LongRunningTask_blockedById_fkey" FOREIGN KEY ("blockedById") REFERENCES "LongRunningTask"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "RoutineSection" ADD CONSTRAINT "RoutineSection_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "LongRunningTask" ADD CONSTRAINT "LongRunningTask_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Routine" ADD CONSTRAINT "Routine_sectionId_fkey" FOREIGN KEY ("sectionId") REFERENCES "RoutineSection"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "ShortRunningTask" ADD CONSTRAINT "ShortRunningTask_parentId_fkey" FOREIGN KEY ("parentId") REFERENCES "LongRunningTask"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ShortRunningTask" ADD CONSTRAINT "ShortRunningTask_blockedById_fkey" FOREIGN KEY ("blockedById") REFERENCES "ShortRunningTask"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Challenge" ADD CONSTRAINT "Challenge_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
