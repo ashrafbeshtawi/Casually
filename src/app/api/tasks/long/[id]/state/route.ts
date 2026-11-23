@@ -53,6 +53,21 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     )
   }
 
+  if (newState === "BLOCKED" && blockedById) {
+    // The blocker must be another project of the same user, otherwise GET
+    // would expose a foreign task's title through the blockedBy relation.
+    const blocker =
+      typeof blockedById === "string" && blockedById !== id
+        ? await prisma.longRunningTask.findFirst({
+            where: { id: blockedById, userId: userId },
+            select: { id: true },
+          })
+        : null
+    if (!blocker) {
+      return NextResponse.json({ error: "Invalid blockedById" }, { status: 400 })
+    }
+  }
+
   try {
     await changeLongRunningTaskState(prisma, id, newState as TaskState, blockedById)
   } catch (error) {
