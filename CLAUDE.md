@@ -13,8 +13,10 @@ Casually is a cross-platform task management app with a **Next.js web app** and 
 - `npm run build` — Production build
 - `npm run lint` — Run ESLint
 - `npm run db:generate` — Generate Prisma client
-- `npm run db:migrate` — Run Prisma migrations (dev)
-- `npm run db:push` — Push schema changes to database
+- `npm run db:migrate` — Create/apply a migration (`prisma migrate dev`; local/throwaway DB only)
+- `npm run db:migrate:deploy` — Apply pending migrations (`prisma migrate deploy`; safe for production)
+- `npm run db:migrate:status` — Show applied/pending migrations
+- `npm run db:push` — Push schema without a migration (local prototyping only)
 - `npm run db:studio` — Open Prisma Studio
 - `npm run db:seed` — Seed database (`tsx prisma/seed.ts`)
 
@@ -73,6 +75,12 @@ Casually is a cross-platform task management app with a **Next.js web app** and 
 - Android follows MVVM: ViewModels → Repositories → Retrofit API
 - Auth tokens stored in Android EncryptedSharedPreferences
 - Widget collapse state uses Glance DataStore for instant UI updates (not SharedPreferences)
+
+### Database Migrations
+- `prisma/migrations` is the source of truth; it starts from the baseline `0_init` (generated from `schema.prisma`).
+- Schema change: edit `prisma/schema.prisma`, run `npm run db:migrate -- --name <change>` against a local/throwaway DB, commit the new migration folder together with the schema change.
+- Production/shared DBs: only `npm run db:migrate:deploy`.
+- NEVER run `prisma migrate dev`, `prisma migrate reset` or `prisma db push` (especially `--force-reset`) against the `.env` `DATABASE_URL` (live Neon DB): on drift they reset the database and delete all user data.
 
 ## Environment Variables
 

@@ -34,9 +34,25 @@ git clone https://github.com/ashrafbeshtawi/Casually.git
 cd Casually
 npm install
 cp .env.example .env   # then fill in the values below
-npm run db:push        # sync schema to the database
-npm run dev            # http://localhost:3000
+npm run db:migrate:deploy   # apply prisma/migrations to the database
+npm run dev                 # http://localhost:3000
 ```
+
+### Database migrations
+
+`prisma/migrations` is the source of truth for the database schema. It starts from a
+single baseline, `0_init`, generated from `prisma/schema.prisma`.
+
+- Change the schema: edit `prisma/schema.prisma`, then run `npm run db:migrate -- --name <change>`
+  against a **local or throwaway** database. This creates a new migration folder; commit it.
+- Apply migrations to production (or any shared database): `npm run db:migrate:deploy`.
+  It only applies pending migrations and never resets data.
+- Never run `npm run db:migrate` (`migrate dev`) or `db:push --force-reset` against the
+  production database: on drift `migrate dev` offers to reset it, which deletes all data.
+- Check what is applied: `npm run db:migrate:status`.
+
+A database that was created with `db push` before the baseline existed must be marked as
+baselined once: `npx prisma migrate resolve --applied 0_init`.
 
 ### Environment variables
 
@@ -56,8 +72,10 @@ npm run dev            # http://localhost:3000
 | `npm run lint` | ESLint |
 | `npm run test` / `npm run test:watch` | Vitest suite |
 | `npm run db:generate` | Regenerate the Prisma client |
-| `npm run db:migrate` | Create/run dev migrations |
-| `npm run db:push` | Push schema without a migration |
+| `npm run db:migrate` | Create/apply a migration (`migrate dev`, local/throwaway DB only) |
+| `npm run db:migrate:deploy` | Apply pending migrations (`migrate deploy`, safe for production) |
+| `npm run db:migrate:status` | Show which migrations are applied |
+| `npm run db:push` | Push schema without a migration (local prototyping only) |
 | `npm run db:studio` | Prisma Studio |
 | `npm run db:seed` | Seed the database |
 
