@@ -131,3 +131,16 @@ export async function POST(request: NextRequest) {
     },
   })
 }
+
+// Sign-out for the Android app: deletes the Session its cookie token points
+// to, so a copied token stops working instead of living out its 30 days.
+// Always 204, whether or not a session matched, so the call reveals nothing.
+export async function DELETE(request: NextRequest) {
+  const token =
+    request.cookies.get("__Secure-authjs.session-token")?.value ||
+    request.cookies.get("authjs.session-token")?.value
+  if (token) {
+    await prisma.session.deleteMany({ where: { sessionToken: token } })
+  }
+  return new NextResponse(null, { status: 204 })
+}

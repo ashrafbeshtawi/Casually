@@ -212,6 +212,17 @@ class WidgetDataProvider(private val context: Context) {
     }
 
     /**
+     * Wipe every widget instance's Glance state (task data, collapse state,
+     * loading flag), so no titles of the signed-out user stay on screen.
+     */
+    suspend fun clearAll() {
+        val manager = GlanceAppWidgetManager(context)
+        for (glanceId in manager.getGlanceIds(CasuallyWidget::class.java)) {
+            updateAppWidgetState(context, glanceId) { prefs -> prefs.clear() }
+        }
+    }
+
+    /**
      * Tell Glance to re-compose every widget instance.
      */
     suspend fun refreshWidgets() {
