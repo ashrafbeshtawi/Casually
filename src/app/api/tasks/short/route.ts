@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getAuthUserId } from "@/lib/api-token"
 import { prisma } from "@/lib/prisma"
+import { parseStatePriorityFilters } from "@/lib/list-filters"
 import { TaskState } from "@/types"
 
 export async function GET(request: NextRequest) {
@@ -11,8 +12,9 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = request.nextUrl
   const parentId = searchParams.get("parentId")
-  const state = searchParams.get("state")
-  const priority = searchParams.get("priority")
+  const filters = parseStatePriorityFilters(searchParams)
+  if (filters.error) return filters.error
+  const { state, priority } = filters
 
   const where: Record<string, unknown> = {
     parent: { userId: userId },

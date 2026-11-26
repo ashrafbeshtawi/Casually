@@ -19,6 +19,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }))
 
+const { prisma } = await import("@/lib/prisma")
 const { GET, POST } = await import("@/app/api/tasks/long/route")
 
 const post = (body: unknown) =>
@@ -36,6 +37,27 @@ describe("GET /api/tasks/long", () => {
     const [p1, p2] = await res.json()
     expect(p1.subtaskCounts).toEqual({ ACTIVE: 2, WAITING: 0, BLOCKED: 0, DONE: 1 })
     expect(p2.subtaskCounts).toEqual({ ACTIVE: 0, WAITING: 0, BLOCKED: 0, DONE: 0 })
+  })
+
+  it("passes valid state/priority filters through to the query", async () => {
+    const res = await GET(
+      new NextRequest("http://localhost:3000/api/tasks/long?state=ACTIVE&priority=HIGH")
+    )
+    expect(res.status).toBe(200)
+    expect(prisma.longRunningTask.findMany).toHaveBeenLastCalledWith(
+      expect.objectContaining({ where: { userId: "user-1", state: "ACTIVE", priority: "HIGH" } })
+    )
+  })
+
+  it.each([
+    ["state=bogus", "Invalid state"],
+    ["priority=urgent", "Invalid priority"],
+  ])("rejects %s with 400 without querying", async (query, message) => {
+    vi.mocked(prisma.longRunningTask.findMany).mockClear()
+    const res = await GET(new NextRequest(`http://localhost:3000/api/tasks/long?${query}`))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe(message)
+    expect(prisma.longRunningTask.findMany).not.toHaveBeenCalled()
   })
 })
 
