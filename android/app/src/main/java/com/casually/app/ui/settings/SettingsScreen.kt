@@ -30,6 +30,7 @@ import com.casually.app.data.repository.AuthRepository
 import com.casually.app.domain.model.ApiToken
 import com.casually.app.ui.theme.CasuallyPurple
 import com.casually.app.ui.theme.ThemeMode
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -42,6 +43,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val scope = rememberCoroutineScope()
     Scaffold(
         topBar = {
             TopAppBar(
@@ -200,8 +202,10 @@ fun SettingsScreen(
             // Sign out
             OutlinedButton(
                 onClick = {
-                    authRepository.signOut()
-                    onSignOut()
+                    scope.launch {
+                        authRepository.signOut()
+                        onSignOut()
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),

@@ -7,7 +7,7 @@ const { verifyIdToken, prisma } = vi.hoisted(() => ({
     account: { findUnique: vi.fn(), create: vi.fn() },
     user: { findUnique: vi.fn(), create: vi.fn() },
     longRunningTask: { createMany: vi.fn() },
-    session: { create: vi.fn() },
+    session: { create: vi.fn(), deleteMany: vi.fn() },
   },
 }))
 
@@ -18,7 +18,15 @@ vi.mock("google-auth-library", () => ({
 }))
 vi.mock("@/lib/prisma", () => ({ prisma }))
 
-const { POST } = await import("@/app/api/auth/mobile/route")
+const { POST, DELETE } = await import("@/app/api/auth/mobile/route")
+
+const logout = (cookie?: string) =>
+  DELETE(
+    new NextRequest("http://localhost:3000/api/auth/mobile", {
+      method: "DELETE",
+      headers: cookie ? { Cookie: cookie } : {},
+    })
+  )
 
 const login = (payload: Record<string, unknown>) => {
   verifyIdToken.mockResolvedValue({ getPayload: () => payload })
@@ -80,5 +88,24 @@ describe("POST /api/auth/mobile", () => {
     expect(prisma.account.create).toHaveBeenCalledWith({
       data: { userId: "new", type: "oidc", provider: "google", providerAccountId: "g-bob" },
     })
+  })
+})
+
+describe("DELETE /api/auth/mobile", () => {
+  it("deletes the session the cookie token points to", async () => {
+    const res = await logout("__Secure-authjs.session-token=tok-1; authjs.session-token=tok-1")
+    expect(res.status).toBe(204)
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({ where: { sessionToken: "tok-1" } })
+  })
+
+  it("accepts the non-secure cookie name too", async () => {
+    await logout("authjs.session-token=tok-2")
+    expect(prisma.session.deleteMany).toHaveBeenCalledWith({ where: { sessionToken: "tok-2" } })
+  })
+
+  it("does nothing without a cookie and still answers 204", async () => {
+    const res = await logout()
+    expect(res.status).toBe(204)
+    expect(prisma.session.deleteMany).not.toHaveBeenCalled()
   })
 })
