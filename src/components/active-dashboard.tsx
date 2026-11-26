@@ -28,7 +28,7 @@ interface Project {
   priority: Priority
   state: TaskState
   _count: { children: number }
-  children?: Task[]
+  subtaskCounts: Record<TaskState, number>
 }
 
 interface Task {
@@ -67,17 +67,18 @@ export function ActiveDashboard() {
     try {
       const [projectsRes, tasksRes] = await Promise.all([
         fetch('/api/tasks/long?state=ACTIVE'),
-        // All states so the header can summarize waiting/blocked too
-        fetch('/api/tasks/short'),
+        // Only ACTIVE subtasks are rendered; waiting/blocked numbers come
+        // from each project's subtaskCounts.
+        fetch('/api/tasks/short?state=ACTIVE'),
       ])
 
       if (!projectsRes.ok || !tasksRes.ok) throw new Error('Failed to fetch')
 
       const allProjects: Project[] = await projectsRes.json()
-      const allTasks: Task[] = await tasksRes.json()
+      const activeTasks: Task[] = await tasksRes.json()
 
       setProjects(allProjects)
-      setShortTasks(allTasks)
+      setShortTasks(activeTasks)
       setError(null)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load')
@@ -106,15 +107,14 @@ export function ActiveDashboard() {
     )
   }
 
-  // Group short tasks by parent
+  // Group active short tasks by parent
   const tasksByParent = new Map<string, Task[]>()
   for (const task of shortTasks) {
     const list = tasksByParent.get(task.parentId) ?? []
     list.push(task)
     tasksByParent.set(task.parentId, list)
   }
-  const activeTasksOf = (projectId: string) =>
-    (tasksByParent.get(projectId) ?? []).filter((t) => t.state === 'ACTIVE')
+  const activeTasksOf = (projectId: string) => tasksByParent.get(projectId) ?? []
 
   // Filter projects by active tab, then show only those with active subtasks
   const tabProjects = filterProjectsByTab(projects, activeTab)
@@ -153,10 +153,9 @@ export function ActiveDashboard() {
         </div>
       ) : (
         visibleProjects.map((project) => {
-          const allChildren = tasksByParent.get(project.id) ?? []
           const children = sortByPriority(activeTasksOf(project.id))
-          const waiting = allChildren.filter((t) => t.state === 'WAITING').length
-          const blocked = allChildren.filter((t) => t.state === 'BLOCKED').length
+          const waiting = project.subtaskCounts?.WAITING ?? 0
+          const blocked = project.subtaskCounts?.BLOCKED ?? 0
           const summary = [
             children.length > 0 && `${children.length} active`,
             waiting > 0 && `${waiting} waiting`,
