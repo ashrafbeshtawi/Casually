@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Backup rules for Android 11 (API 30) and lower.
+    The session prefs are encrypted with a Keystore key that is never backed up,
+    so restoring the file on another install would leave it unreadable.
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="casually_session.xml" />
+</full-backup-content>
